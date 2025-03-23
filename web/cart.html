@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Корзина</title>
+  <style>
+    body {
+      background-color: #FFDAB9;
+      color: #4B3621;
+      font-family: Arial, sans-serif;
+    }
+    .cart-item {
+      border: 1px solid #4B3621;
+      padding: 10px;
+      margin: 10px;
+    }
+    img {
+      max-width: 150px;
+    }
+  </style>
+</head>
+<body>
+  <h2 style="text-align:center;">Ваша корзина</h2>
+  <div id="cartContainer"></div>
+  <script>
+    async function loadCart(){
+      const response = await fetch("/cart");
+      const cartItems = await response.json();
+      const container = document.getElementById("cartContainer");
+      container.innerHTML = "";
+      if(cartItems.length === 0){
+        container.innerHTML = "<p>Корзина пуста</p>";
+      } else {
+        cartItems.forEach(item => {
+          const div = document.createElement("div");
+          div.className = "cart-item";
+          div.innerHTML = `
+            <h3>${item.name}</h3>
+            <p>${item.description}</p>
+            <img src="${item.image_url}" alt="${item.name}">
+            <p>Цена: $${item.price}</p>
+          `;
+          container.appendChild(div);
+        });
+      }
+    }
+    loadCart();
+  </script>
+</body>
+</html>
