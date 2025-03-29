@@ -19,23 +19,44 @@ func NewProductRepository() *ProductRepository {
 	repo.products["1"] = models.Product{
 		ID:          "1",
 		Name:        "Gin",
-		Description: "Фреймворк для языка Go",
-		ImageURL:    "web/img/Gin.png",
+		Description: "Высокопроизводительный фреймворк для веб-приложений на Go. Обеспечивает отличную производительность и низкий расход памяти.",
+		ImageURL:    "https://raw.githubusercontent.com/gin-gonic/logo/master/color.png",
 		Price:       49.99,
 	}
 	repo.products["2"] = models.Product{
 		ID:          "2",
 		Name:        "Django",
-		Description: "Фреймворк для Python с простым синтаксисом",
-		ImageURL:    "web/img/Django.jpg",
+		Description: "Мощный Python-фреймворк для создания веб-приложений. Включает ORM, админ-панель и множество полезных инструментов.",
+		ImageURL:    "https://static.djangoproject.com/img/logos/django-logo-positive.png",
 		Price:       39.99,
 	}
 	repo.products["3"] = models.Product{
 		ID:          "3",
 		Name:        "Spring",
-		Description: "Инновационный фреймворк для Java",
-		ImageURL:    "web/img/Spring.png",
+		Description: "Полнофункциональный фреймворк для Java с множеством модулей. Идеально подходит для корпоративных приложений.",
+		ImageURL:    "https://spring.io/img/spring-2.svg",
 		Price:       59.99,
+	}
+	repo.products["4"] = models.Product{
+		ID:          "4",
+		Name:        "React",
+		Description: "JavaScript-библиотека для создания пользовательских интерфейсов. Популярное решение для современных веб-приложений.",
+		ImageURL:    "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/1200px-React-icon.svg.png",
+		Price:       45.99,
+	}
+	repo.products["5"] = models.Product{
+		ID:          "5",
+		Name:        "Vue.js",
+		Description: "Прогрессивный JavaScript-фреймворк для создания пользовательских интерфейсов. Легко интегрируется в проекты.",
+		ImageURL:    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Vue.js_Logo_2.svg/1200px-Vue.js_Logo_2.svg.png",
+		Price:       42.99,
+	}
+	repo.products["6"] = models.Product{
+		ID:          "6",
+		Name:        "Laravel",
+		Description: "Элегантный PHP-фреймворк для веб-разработки. Предлагает отличную экосистему и множество готовых решений.",
+		ImageURL:    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Laravel.svg/985px-Laravel.svg.png",
+		Price:       47.99,
 	}
 	return repo
 }

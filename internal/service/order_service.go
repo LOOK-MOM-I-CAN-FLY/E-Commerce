@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"log"
-	"net/smtp"
 
 	"github.com/LOOK-MOM-I-CAN-FLY/E-Commerce/internal/models"
 	"github.com/LOOK-MOM-I-CAN-FLY/E-Commerce/internal/repository"
@@ -39,17 +38,31 @@ func (os *OrderService) Checkout(userEmail, customerEmail string, cart []string)
 	}
 	os.orderRepo.Create(order)
 
-	// Отправляем email с подтверждением (используем MailHog)
-	firstProduct := purchasedProducts[0]
-	subject := "Подтверждение покупки"
-	body := fmt.Sprintf("Спасибо за покупку!\n\nВы приобрели: %s\n\nФото товара: %s", firstProduct.Name, firstProduct.ImageURL)
-	message := fmt.Sprintf("Subject: %s\r\n\r\n%s", subject, body)
-	smtpServer := "localhost:1025"
-	err := smtp.SendMail(smtpServer, nil, "noreply@example.com", []string{customerEmail}, []byte(message))
-	if err != nil {
-		log.Printf("Ошибка отправки email: %v", err)
-		return err
+	// Имитируем отправку email с фреймворками
+	log.Printf("==== ОТПРАВКА ЗАКАЗА ====")
+	log.Printf("Отправка фреймворков на email: %s", customerEmail)
+
+	for _, product := range purchasedProducts {
+		log.Printf("- %s (%.2f руб)", product.Name, product.Price)
+		log.Printf("  Ссылка на изображение: %s", product.ImageURL)
 	}
-	log.Printf("Письмо отправлено на %s", customerEmail)
+
+	log.Printf("Общая сумма заказа: %.2f руб", calculateTotal(purchasedProducts))
+	log.Printf("==== ЗАКАЗ УСПЕШНО ОФОРМЛЕН ====")
+
 	return nil
+}
+
+// Вычисляет общую стоимость заказа
+func calculateTotal(products []models.Product) float64 {
+	var total float64
+	for _, p := range products {
+		total += p.Price
+	}
+	return total
+}
+
+// GetProductByID возвращает продукт по его ID
+func (s *OrderService) GetProductByID(id string) (models.Product, bool) {
+	return s.productRepo.GetByID(id)
 }
