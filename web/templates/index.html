@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Главная - Digital Marketplace</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+  <header>
+    <nav>
+      <ul>
+        <li><a href="/">Главная</a></li>
+        <li><a href="/products">Товары</a></li>
+        {{if .IsLoggedIn}}
+          <li><a href="/dashboard">Панель управления</a></li>
+          <li><a href="/profile">Профиль</a></li>
+          <li><a href="/cart">Корзина</a></li>
+          <li><a href="/logout">Выйти</a></li>
+        {{else}}
+          <li><a href="/login">Войти</a></li>
+          <li><a href="/register">Регистрация</a></li>
+        {{end}}
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <div class="container slide-in-up">
+      <h1>Добро пожаловать в Digital Marketplace</h1>
+      <p>Покупайте и продавайте цифровые товары легко и удобно.</p>
+      {{if not .IsLoggedIn}}
+      <div style="text-align: center;">
+        <a class="btn" href="/register">Создать аккаунт</a>
+        <a class="btn btn-secondary" href="/login">Войти</a>
+      </div>
+      {{end}}
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Digital Marketplace. Все права защищены.</p>
+  </footer>
+
+  <script src="/static/js/main.js" defer></script>
+</body>
+</html>

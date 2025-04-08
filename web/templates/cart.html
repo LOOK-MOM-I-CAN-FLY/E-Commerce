@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Корзина - Digital Marketplace</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<header>
+    <nav>
+        <ul>
+            <li><a href="/">Главная</a></li>
+            <li><a href="/products">Товары</a></li>
+            {{if .IsLoggedIn}}
+                <li><a href="/dashboard">Панель управления</a></li>
+                <li><a href="/profile">Профиль</a></li>
+                <li><a href="/cart">Корзина</a></li>
+                <li><a href="/logout">Выйти</a></li>
+            {{else}}
+                <li><a href="/login">Войти</a></li>
+                <li><a href="/register">Регистрация</a></li>
+            {{end}}
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <div class="container">
+        <h1 class="slide-in-up">Ваша корзина</h1>
+
+        {{if .Items}}
+            <div class="cart-items">
+                {{range .Items}}
+                <div class="cart-item">
+                    <img src="{{.Product.FilePath}}" alt="{{.Product.Title}}" class="cart-item-image">
+                    <div class="cart-item-details">
+                        <h3>{{.Product.Title}}</h3>
+                        <p>{{.Product.Description}}</p>
+                        <!-- Цена пока не реализована -->
+                    </div>
+                    <div class="cart-item-actions">
+                        <form action="/cart/remove/{{.ID}}" method="POST">
+                            <button type="submit" class="btn btn-danger btn-small">Удалить</button>
+                        </form>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            <div class="cart-summary">
+                <p><strong>Итого:</strong> <!-- Сюда позже добавим сумму --> </p>
+                <form action="/checkout" method="POST">
+                    <button type="submit" class="btn">Оформить заказ</button>
+                </form>
+            </div>
+        {{else}}
+            <p style="text-align: center;" class="slide-in-up">Ваша корзина пуста.</p>
+        {{end}}
+    </div>
+</main>
+
+<footer>
+    <p>&copy; 2024 Digital Marketplace. Все права защищены.</p>
+</footer>
+
+<script src="/static/js/main.js" defer></script>
+</body>
+</html> 

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Мой профиль - Digital Marketplace</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+  <header>
+    <nav>
+      <ul>
+        <li><a href="/">Главная</a></li>
+        <li><a href="/products">Товары</a></li>
+        {{if .IsLoggedIn}}
+            <li><a href="/dashboard">Личный кабинет</a></li>
+            <li><a href="/profile">Мой профиль</a></li>
+            <li><a href="/cart">Корзина</a></li>
+            <li><a href="/logout">Выйти</a></li>
+        {{else}}
+            <li><a href="/login">Войти</a></li>
+        {{end}}
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <div class="container slide-in-up">
+        <h1>Мой профиль</h1>
+
+        <!-- Display User Info -->
+        <div class="profile-info form-container" style="margin-bottom: 40px;">
+            <h2>Данные пользователя</h2>
+            <p><strong>Email:</strong> {{.User.Email}}</p> <!-- Assuming User object with Email -->
+            <!-- Add other user details here -->
+            <!-- <a href="/profile/edit" class="btn btn-small">Редактировать</a> -->
+        </div>
+
+        <!-- Change Password Form -->
+        <div class="password-change form-container">
+            <h2>Смена пароля</h2>
+            <!-- Add success/error message display -->
+            <form method="POST" action="/profile/change-password"> <!-- Needs backend endpoint -->
+                <div class="form-group">
+                    <label for="current_password">Текущий пароль:</label>
+                    <input type="password" id="current_password" name="current_password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new_password">Новый пароль:</label>
+                    <input type="password" id="new_password" name="new_password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_new_password">Подтвердите новый пароль:</label>
+                    <input type="password" id="confirm_new_password" name="confirm_new_password" required>
+                </div>
+                <div style="text-align: center;">
+                    <button type="submit" class="btn">Сменить пароль</button>
+                </div>
+            </form>
+        </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Digital Marketplace. Все права защищены.</p>
+  </footer>
+
+  <script src="/static/js/main.js" defer></script>
+</body>
+</html> 

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Личный кабинет - Digital Marketplace</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+  <header>
+    <nav>
+      <ul>
+        <li><a href="/">Главная</a></li>
+        <li><a href="/products">Товары</a></li>
+        <li><a href="/dashboard">Личный кабинет</a></li>
+        <li><a href="/profile">Профиль</a></li>
+        <li><a href="/cart">Корзина</a></li>
+        <li><a href="/upload">Добавить товар</a></li>
+        <li><a href="/logout">Выйти</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <div class="container slide-in-up">
+        <h1>Личный кабинет</h1>
+        <p style="text-align: center; margin-bottom: 30px;">Добро пожаловать! Здесь вы можете управлять своими товарами.</p>
+
+        <div style="text-align: center; margin-bottom: 40px;">
+             <a href="/upload" class="btn">Добавить новый товар</a>
+             <a href="/logout" class="btn btn-secondary">Выйти из аккаунта</a>
+        </div>
+
+        <h2>Мои товары</h2>
+        <ul class="product-list" style="list-style: none; padding: 0;">
+            {{range .Products}}
+                <li style="background: #f9f9f9; margin-bottom: 10px; padding: 15px; border-radius: var(--border-radius); border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: var(--secondary-color); font-size: 1.1em;">{{.Title}}</strong>
+                        <p style="margin: 5px 0 0 0; font-size: 0.95em;">{{.Description}}</p>
+                    </div>
+                </li>
+            {{else}}
+                <li style="text-align: center; padding: 20px; color: #777;">У вас пока нет добавленных товаров.</li>
+            {{end}}
+        </ul>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Digital Marketplace. Все права защищены.</p>
+  </footer>
+
+  <script src="/static/js/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Товары - Digital Marketplace</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+  <header>
+    <nav>
+      <!-- You might want to conditionally render navigation based on login status -->
+      <ul>
+        <li><a href="/">Главная</a></li>
+        <li><a href="/products">Товары</a></li>
+        <!-- Add links based on auth status: /login, /register or /dashboard, /logout -->
+        {{if .IsLoggedIn}}
+            <li><a href="/dashboard">Личный кабинет</a></li>
+            <li><a href="/logout">Выйти</a></li>
+        {{else}}
+            <li><a href="/login">Войти</a></li>
+            <li><a href="/register">Регистрация</a></li>
+        {{end}}
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <div class="container">
+        <h1 class="slide-in-up">Все товары</h1>
+
+        <div class="card-grid">
+            {{range .AllProducts}}
+                <div class="card slide-in-up">
+                    <img src="{{.FilePath}}" alt="{{.Title}}">
+                    <div class="card-content">
+                        <h3>{{.Title}}</h3>
+                        <p>{{.Description}}</p>
+                        <!-- Изменяем ссылку на форму POST -->
+                        <form action="/cart/add/{{.ID}}" method="POST" style="display: inline;">
+                            <button type="submit" class="btn">В корзину</button>
+                        </form>
+                    </div>
+                </div>
+            {{else}}
+                <p style="text-align: center; grid-column: 1 / -1;">На данный момент товары отсутствуют.</p>
+            {{end}}
+        </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Digital Marketplace. Все права защищены.</p>
+  </footer>
+
+  <script src="/static/js/main.js" defer></script>
+</body>
+</html> 

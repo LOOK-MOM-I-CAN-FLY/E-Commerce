@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация - Digital Marketplace</title>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+  <header>
+    <nav>
+      <ul>
+        <li><a href="/">Главная</a></li>
+        <li><a href="/products">Товары</a></li>
+        <li><a href="/login">Войти</a></li>
+        <li><a href="/register">Регистрация</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <div class="form-container slide-in-up">
+        <h1>Регистрация</h1>
+        <!-- Add error message display if needed (needs backend logic) -->
+        <form method="POST" action="/register">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Пароль:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+             <!-- Add confirm password field if needed -->
+             <!-- <div class="form-group">
+                <label for="confirm_password">Подтвердите Пароль:</label>
+                <input type="password" id="confirm_password" name="confirm_password" required>
+            </div> -->
+            <div style="text-align: center;">
+                <button type="submit" class="btn">Зарегистрироваться</button>
+            </div>
+        </form>
+        <p style="text-align: center; margin-top: 20px;">Уже есть аккаунт? <a href="/login">Войдите</a></p>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Digital Marketplace. Все права защищены.</p>
+  </footer>
+
+  <script src="/static/js/main.js" defer></script>
+</body>
+</html>

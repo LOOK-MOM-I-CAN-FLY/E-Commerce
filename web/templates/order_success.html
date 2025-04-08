@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Заказ оформлен - Digital Marketplace</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<header>
+    <nav>
+        <ul>
+            <li><a href="/">Главная</a></li>
+            <li><a href="/products">Товары</a></li>
+            {{if .IsLoggedIn}}
+                <li><a href="/dashboard">Панель управления</a></li>
+                <li><a href="/profile">Профиль</a></li>
+                <!-- Корзина уже пуста, можно ее не показывать или сделать неактивной -->
+                <!-- <li><a href="/cart">Корзина</a></li> -->
+                <li><a href="/logout">Выйти</a></li>
+            {{else}}
+                <li><a href="/login">Войти</a></li>
+                <li><a href="/register">Регистрация</a></li>
+            {{end}}
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <div class="container">
+        <h1 class="slide-in-up">Заказ успешно оформлен!</h1>
+        <p class="slide-in-up" style="text-align: center;">Спасибо за покупку! Мы отправили детали заказа и файлы на ваш email.</p>
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/products" class="btn">Продолжить покупки</a>
+            <a href="/dashboard" class="btn btn-secondary">Перейти в панель управления</a>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <p>&copy; 2024 Digital Marketplace. Все права защищены.</p>
+</footer>
+
+<script src="/static/js/main.js" defer></script>
+</body>
+</html> 

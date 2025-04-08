@@ -1,0 +1,17 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Купить товар</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <h1>Купить товар</h1>
+    <form action="/buy" method="POST">
+        <label>Ваш email:</label><input type="email" name="email" required><br>
+        <label>ID товара:</label><input type="text" name="product_id" required><br>
+        <button type="submit">Купить</button>
+    </form>
+</body>
+</html>
