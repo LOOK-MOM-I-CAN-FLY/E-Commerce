@@ -29,9 +29,6 @@ services:
     environment:
       SMTP_HOST: mailhog
       SMTP_PORT: 1025
-      # SMTP_USER и SMTP_PASS больше не нужны для MailHog
-      # SMTP_USER: your_email@example.com
-      # SMTP_PASS: your_password
 
 volumes:
   pgdata:
