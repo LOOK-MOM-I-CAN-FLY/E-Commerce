@@ -35,9 +35,10 @@ func main() {
 	upload := controllers.NewUploadController()
 	buy := controllers.NewBuyController()
 	dash := controllers.NewDashboardController()
-	prod := controllers.NewProductController() // New product controller
-	cart := controllers.NewCartController()    // Инициализируем контроллер корзины
-	order := controllers.NewOrderController()  // Инициализируем контроллер заказов
+	prod := controllers.NewProductController()      // New product controller
+	cart := controllers.NewCartController()         // Инициализируем контроллер корзины
+	order := controllers.NewOrderController()       // Инициализируем контроллер заказов
+	download := controllers.NewDownloadController() // Новый контроллер для скачивания
 
 	// Public routes (only set login status)
 	public := router.Group("/")
@@ -49,6 +50,9 @@ func main() {
 		public.GET("/login", auth.ShowLogin)
 		public.POST("/login", auth.Login)
 		public.GET("/products", prod.ShowProducts) // New products page handler
+
+		// Маршрут для скачивания по токену (публичный, но требует токен)
+		public.GET("/download/:token", download.HandleDownload)
 	}
 
 	// Routes requiring authentication
@@ -72,6 +76,9 @@ func main() {
 		// Маршруты для оформления заказа
 		authenticated.POST("/checkout", order.Checkout)              // Оформить заказ
 		authenticated.GET("/order/success/", order.ShowOrderSuccess) // Страница успешного заказа
+
+		// Специальный маршрут для API создания ссылок скачивания
+		authenticated.GET("/secure-download", download.HandleSecureDownload)
 	}
 
 	// Start server

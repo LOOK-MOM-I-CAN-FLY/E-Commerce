@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/smtp"
 	"os"
-	"strings"
 )
 
 func SendProductToEmail(to string, product models.Product) error {
@@ -31,11 +30,15 @@ func SendProductToEmail(to string, product models.Product) error {
 		baseURL = "http://localhost:8080"
 	}
 
-	// Формируем ссылку на скачивание
-	fileURL := product.FilePath
-	if !strings.HasPrefix(fileURL, "http") {
-		fileURL = baseURL + strings.TrimPrefix(fileURL, "/")
+	// Создаем защищенный токен для скачивания вместо прямой ссылки
+	fileService := NewFileService()
+	downloadToken, err := fileService.GenerateDownloadToken(product.ID)
+	if err != nil {
+		return fmt.Errorf("ошибка создания токена скачивания: %v", err)
 	}
+
+	// Формируем безопасную ссылку на скачивание с использованием токена
+	downloadURL := fileService.GenerateDownloadURL(downloadToken, baseURL)
 
 	body := fmt.Sprintf(`Уважаемый клиент!
 
@@ -44,11 +47,11 @@ func SendProductToEmail(to string, product models.Product) error {
 Товар: %s
 Описание: %s
 
-Ссылка на скачивание:
+Ссылка на скачивание (действительна 24 часа):
 %s
 
 С уважением,
-Команда Digital Marketplace`, product.Title, product.Description, fileURL)
+Команда Digital Marketplace`, product.Title, product.Description, downloadURL)
 
 	msg := "From: " + fromEmail + "\r\n" +
 		"To: " + to + "\r\n" +

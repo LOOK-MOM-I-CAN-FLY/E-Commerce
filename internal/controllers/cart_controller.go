@@ -42,8 +42,10 @@ func (cc *CartController) AddToCart(c *gin.Context) {
 	}
 
 	// 4. Check if item is already in cart (optional: prevent duplicates or increase quantity later)
-	var existingItem models.CartItem
-	isInCart := database.DB.Where("user_id = ? AND product_id = ?", user.ID, uint(productID)).First(&existingItem).Error == nil
+	var existingItems []models.CartItem
+	result := database.DB.Where("user_id = ? AND product_id = ?", user.ID, uint(productID)).Find(&existingItems)
+
+	isInCart := result.RowsAffected > 0
 
 	if isInCart {
 		// For now, just redirect back or show a message. Later, could increase quantity.
@@ -59,7 +61,7 @@ func (cc *CartController) AddToCart(c *gin.Context) {
 		ProductID: uint(productID),
 	}
 
-	result := database.DB.Create(&cartItem)
+	result = database.DB.Create(&cartItem)
 	if result.Error != nil {
 		// Handle DB error
 		fmt.Println("Error adding item to cart:", result.Error) // Log error

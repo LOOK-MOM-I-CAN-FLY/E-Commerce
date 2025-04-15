@@ -3,11 +3,11 @@ package controllers
 import (
 	"digital-marketplace/internal/database"
 	"digital-marketplace/internal/models"
+	"digital-marketplace/internal/services"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gopkg.in/gomail.v2"
@@ -163,16 +163,26 @@ func sendOrderConfirmationEmail(toEmail string, orderID uint, filePaths []string
 	var orderItems []models.OrderItem
 	database.DB.Preload("Product").Where("order_id = ?", orderID).Find(&orderItems)
 
+	// Создаем сервис для генерации безопасных URL
+	fileService := services.NewFileService()
+
 	// Если у нас есть товары в заказе, добавляем их в тело письма
 	if len(orderItems) > 0 {
 		for i, item := range orderItems {
 			product := item.Product
-			// Формируем URL для скачивания
-			downloadURL := product.FilePath
-			if !strings.HasPrefix(downloadURL, "http") {
-				downloadURL = baseURL + strings.TrimPrefix(downloadURL, "/")
+
+			// Создаем защищенный токен для скачивания
+			downloadToken, tokenErr := fileService.GenerateDownloadToken(product.ID)
+			if tokenErr != nil {
+				fmt.Printf("Ошибка создания токена для продукта %d: %v\n", product.ID, tokenErr)
+				continue
 			}
-			body += fmt.Sprintf("%d. %s: %s\n", i+1, product.Title, downloadURL)
+
+			// Формируем безопасную ссылку на скачивание с использованием токена
+			downloadURL := fileService.GenerateDownloadURL(downloadToken, baseURL)
+
+			body += fmt.Sprintf("%d. %s: %s (ссылка действительна 24 часа)\n",
+				i+1, product.Title, downloadURL)
 		}
 	}
 
@@ -182,24 +192,8 @@ func sendOrderConfirmationEmail(toEmail string, orderID uint, filePaths []string
 
 	m.SetBody("text/plain", body)
 
-	// Прикрепляем файлы
-	for _, path := range filePaths {
-		// Исправляем путь к файлу
-		fullPath := path
-		if strings.HasPrefix(path, "/uploads/") {
-			fullPath = "." + path
-		} else if strings.HasPrefix(path, "uploads/") {
-			fullPath = "./" + path
-		} else if strings.HasPrefix(path, ".uploads/") {
-			fullPath = strings.Replace(path, ".uploads/", "./uploads/", 1)
-		}
-
-		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-			fmt.Printf("Файл вложения не найден: %s. Пропускаем вложение.\n", fullPath)
-			continue // Пропускаем вложение этого файла
-		}
-		m.Attach(fullPath)
-	}
+	// Больше не прикрепляем файлы - используем только ссылки для скачивания
+	// Это решает проблему с размером вложений и доступностью
 
 	d := gomail.NewDialer(smtpHost, smtpPort, smtpUser, smtpPass)
 
