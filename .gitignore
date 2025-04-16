@@ -1,0 +1,13 @@
+*.exe
+*.a
+*.o
+*.env
+*.zip
+*.rar
+*.png
+*.conf
+uploads/*.zip
+uploads/
+# Большие бинарные файлы
+main
+marketplace

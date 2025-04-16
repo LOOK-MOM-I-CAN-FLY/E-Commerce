@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    @font-face {
+      font-family: 'Glamick';
+      src: url('/static/fonts/glamick.otf') format('opentype');
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: 'Glamick', sans-serif;
+      color: #FFD700;
+      background-color: rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      height: 100vh;
+    }
+    .video-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: -1;
+      transition: opacity 0.5s ease-in-out;
+    }
+    #video2 {
+      opacity: 0;
+    }
+    .form-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 70vh;
+      margin-top: 50px;
+    }
+    .register-form {
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 30px;
+      border-radius: 10px;
+      max-width: 400px;
+      width: 100%;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    input[type="email"], input[type="password"], input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid #FFD700;
+      border-radius: 5px;
+      color: #FFD700;
+      font-family: 'Glamick', sans-serif;
+    }
+    input[type="submit"] {
+      background-color: #FFD700;
+      color: black;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: 'Glamick', sans-serif;
+      width: 100%;
+    }
+    .error-message {
+      color: #FF6B6B;
+      margin-bottom: 15px;
+    }
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 60px;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      font-size: 1.1rem;
+      z-index: 10;
+      box-sizing: border-box;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    .nav-center {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex: 1;
+    }
+    .nav-right {
+      display: flex;
+      gap: 1rem;
+    }
+    a {
+      color: #FFD700;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .register-title {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .login-link {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <video id="video1" class="video-bg" autoplay muted></video>
+  <video id="video2" class="video-bg" autoplay muted></video>
+
+  <div class="navbar">
+    <div class="nav-center">
+      <a href="/">Main</a>
+      <a href="/products">Products</a>
+      <a href="/profile">Account</a>
+      <a href="/upload">Add Product</a>
+      <a href="/cart">Cart</a>
+    </div>
+    <div class="nav-right">
+      {{if not .IsLoggedIn}}
+        <a href="/register">Sign Up</a>
+        <a href="/login">Log In</a>
+      {{else}}
+        <a href="/logout">Log Out</a>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="form-container">
+    <div class="register-form">
+      <h2 class="register-title">Create Account</h2>
+      
+      {{if .Error}}
+        <div class="error-message">{{.Error}}</div>
+      {{end}}
+      
+      <form method="post" action="/register">
+        <div class="form-group">
+          <input type="text" name="username" placeholder="Username" required>
+        </div>
+        <div class="form-group">
+          <input type="email" name="email" placeholder="Email" required>
+        </div>
+        <div class="form-group">
+          <input type="password" name="password" placeholder="Password" required>
+        </div>
+        <div class="form-group">
+          <input type="submit" value="Create Account">
+        </div>
+      </form>
+      
+      <div class="login-link">
+        Already have an account? <a href="/login">Sign In</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const video1 = document.getElementById('video1');
+    const video2 = document.getElementById('video2');
+    video1.src = "/static/video/a.MP4";
+    video2.src = "/static/video/b.MP4";
+
+    video1.play().catch(error => console.error("Video 1 Autoplay failed:", error));
+
+    video1.addEventListener('ended', () => {
+      video1.style.opacity = '0';
+      video2.style.opacity = '1';
+      video2.currentTime = 0;
+      video2.play().catch(error => console.error("Video 2 Play failed:", error));
+    });
+
+    video2.addEventListener('ended', () => {
+      video2.style.opacity = '0';
+      video1.style.opacity = '1';
+      video1.currentTime = 0;
+      video1.play().catch(error => console.error("Video 1 Play failed:", error));
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload Product</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    @font-face {
+      font-family: 'Glamick';
+      src: url('/static/fonts/glamick.otf') format('opentype');
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: 'Glamick', sans-serif;
+      color: #FFD700;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    .video-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: -1;
+      transition: opacity 0.5s ease-in-out;
+    }
+
+    #video2 {
+      opacity: 0;
+    }
+
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 60px;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 10;
+      box-sizing: border-box;
+    }
+
+    .nav-center {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex: 1;
+    }
+
+    .nav-right {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .content {
+      padding: 150px 60px 60px;
+      position: relative;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    input, textarea {
+      display: block;
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+      width: 100%;
+      font-family: 'Glamick';
+      background-color: rgba(0, 0, 0, 0.7);
+      border: 1px solid #FFD700;
+      color: #FFD700;
+      border-radius: 5px;
+    }
+
+    a {
+      color: #FFD700;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .file-input-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #FFD700;
+    }
+
+    .file-preview {
+      margin-bottom: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .preview-item {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid #FFD700;
+      padding: 5px;
+      border-radius: 5px;
+      position: relative;
+    }
+
+    .preview-item img {
+      max-width: 100px;
+      max-height: 100px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #FFD700, #FF8C00);
+      color: black;
+      font-family: 'Glamick';
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #FF8C00, #FFD700);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <video id="video1" class="video-bg" autoplay muted></video>
+  <video id="video2" class="video-bg" autoplay muted></video>
+
+  <div class="navbar">
+    <div class="nav-center">
+      <a href="/">Main</a>
+      <a href="/products">Products</a>
+      <a href="/profile">Account</a>
+      <a href="/upload">Add Product</a>
+      <a href="/cart">Cart</a>
+    </div>
+    <div class="nav-right">
+      <a href="/register">Sign Up</a>
+      <a href="/login">Log In</a>
+    </div>
+  </div>
+
+  <div class="content">
+    <h1>Upload New Product</h1>
+    
+    {{if .Error}}
+    <div style="color: red; margin-bottom: 20px;">
+      {{.Error}}
+    </div>
+    {{end}}
+    
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+      <input type="text" name="title" placeholder="Product Name" required>
+      <textarea name="description" placeholder="Description" rows="4"></textarea>
+      <input type="number" name="price" placeholder="Price" step="0.01" required>
+      
+      <div class="file-input-container">
+        <label class="file-input-label">Product Image</label>
+        <input type="file" name="product_image" id="product-image" accept="image/*">
+        <div id="image-preview" class="file-preview"></div>
+      </div>
+      
+      <div class="file-input-container">
+        <label class="file-input-label">Product Files (multiple)</label>
+        <input type="file" name="product_files" multiple id="product-files" required>
+        <div id="files-preview" class="file-preview"></div>
+      </div>
+      
+      <button type="submit">Upload Product</button>
+    </form>
+  </div>
+
+  <script>
+    const video1 = document.getElementById('video1');
+    const video2 = document.getElementById('video2');
+    video1.src = "/static/video/a.MP4";
+    video2.src = "/static/video/b.MP4";
+
+    video1.play().catch(error => console.error("Video 1 Autoplay failed:", error));
+
+    video1.addEventListener('ended', () => {
+      video1.style.opacity = '0';
+      video2.style.opacity = '1';
+      video2.currentTime = 0;
+      video2.play().catch(error => console.error("Video 2 Play failed:", error));
+    });
+
+    video2.addEventListener('ended', () => {
+      video2.style.opacity = '0';
+      video1.style.opacity = '1';
+      video1.currentTime = 0;
+      video1.play().catch(error => console.error("Video 1 Play failed:", error));
+    });
+
+    // Предпросмотр изображения товара
+    document.getElementById('product-image').addEventListener('change', function(e) {
+      const preview = document.getElementById('image-preview');
+      preview.innerHTML = '';
+      
+      if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+          const div = document.createElement('div');
+          div.className = 'preview-item';
+          
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          
+          div.appendChild(img);
+          preview.appendChild(div);
+        }
+        
+        reader.readAsDataURL(this.files[0]);
+      }
+    });
+
+    // Предпросмотр файлов товара
+    document.getElementById('product-files').addEventListener('change', function(e) {
+      const preview = document.getElementById('files-preview');
+      preview.innerHTML = '';
+      
+      if (this.files) {
+        Array.from(this.files).forEach(file => {
+          const div = document.createElement('div');
+          div.className = 'preview-item';
+          div.textContent = file.name;
+          preview.appendChild(div);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
