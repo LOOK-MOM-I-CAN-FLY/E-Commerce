@@ -59,14 +59,20 @@
     .content {
       padding: 150px 60px 60px;
       position: relative;
+      max-width: 800px;
+      margin: 0 auto;
     }
 
     input, textarea {
       display: block;
       margin-bottom: 1rem;
       padding: 0.5rem;
-      width: 300px;
+      width: 100%;
       font-family: 'Glamick';
+      background-color: rgba(0, 0, 0, 0.7);
+      border: 1px solid #FFD700;
+      color: #FFD700;
+      border-radius: 5px;
     }
 
     a {
@@ -76,6 +82,50 @@
 
     a:hover {
       text-decoration: underline;
+    }
+
+    .file-input-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #FFD700;
+    }
+
+    .file-preview {
+      margin-bottom: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .preview-item {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid #FFD700;
+      padding: 5px;
+      border-radius: 5px;
+      position: relative;
+    }
+
+    .preview-item img {
+      max-width: 100px;
+      max-height: 100px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #FFD700, #FF8C00);
+      color: black;
+      font-family: 'Glamick';
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #FF8C00, #FFD700);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
     }
   </style>
 </head>
@@ -99,12 +149,31 @@
 
   <div class="content">
     <h1>Upload New Product</h1>
+    
+    {{if .Error}}
+    <div style="color: red; margin-bottom: 20px;">
+      {{.Error}}
+    </div>
+    {{end}}
+    
     <form method="POST" action="/upload" enctype="multipart/form-data">
-      <input type="text" name="name" placeholder="Product Name" required>
-      <textarea name="description" placeholder="Description"></textarea>
-      <input type="number" name="price" placeholder="Price" required>
-      <input type="file" name="file" required>
-      <button type="submit">Upload</button>
+      <input type="text" name="title" placeholder="Product Name" required>
+      <textarea name="description" placeholder="Description" rows="4"></textarea>
+      <input type="number" name="price" placeholder="Price" step="0.01" required>
+      
+      <div class="file-input-container">
+        <label class="file-input-label">Product Image</label>
+        <input type="file" name="product_image" id="product-image" accept="image/*">
+        <div id="image-preview" class="file-preview"></div>
+      </div>
+      
+      <div class="file-input-container">
+        <label class="file-input-label">Product Files (multiple)</label>
+        <input type="file" name="product_files" multiple id="product-files" required>
+        <div id="files-preview" class="file-preview"></div>
+      </div>
+      
+      <button type="submit">Upload Product</button>
     </form>
   </div>
 
@@ -128,6 +197,44 @@
       video1.style.opacity = '1';
       video1.currentTime = 0;
       video1.play().catch(error => console.error("Video 1 Play failed:", error));
+    });
+
+    // Предпросмотр изображения товара
+    document.getElementById('product-image').addEventListener('change', function(e) {
+      const preview = document.getElementById('image-preview');
+      preview.innerHTML = '';
+      
+      if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+          const div = document.createElement('div');
+          div.className = 'preview-item';
+          
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          
+          div.appendChild(img);
+          preview.appendChild(div);
+        }
+        
+        reader.readAsDataURL(this.files[0]);
+      }
+    });
+
+    // Предпросмотр файлов товара
+    document.getElementById('product-files').addEventListener('change', function(e) {
+      const preview = document.getElementById('files-preview');
+      preview.innerHTML = '';
+      
+      if (this.files) {
+        Array.from(this.files).forEach(file => {
+          const div = document.createElement('div');
+          div.className = 'preview-item';
+          div.textContent = file.name;
+          preview.appendChild(div);
+        });
+      }
     });
   </script>
 </body>

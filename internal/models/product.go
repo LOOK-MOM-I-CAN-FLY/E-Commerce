@@ -7,6 +7,7 @@ type Product struct {
 	Title       string `gorm:"not null"`
 	Description string
 	FilePath    string `gorm:"not null"`
+	ImagePath   string
 	UserID      uint
 	CreatedAt   time.Time
 }
