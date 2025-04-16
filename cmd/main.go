@@ -28,7 +28,9 @@ func main() {
 
 	// Serve static files
 	router.Static("/static", "./web/static")
-	router.Static("/uploads", "./uploads") // Make sure uploads dir exists
+
+	// НЕ обслуживаем /uploads напрямую, используем новые защищенные маршруты
+	// router.Static("/uploads", "./uploads") // Закомментировано для безопасности
 
 	// Initialize controllers
 	auth := controllers.NewAuthController()
@@ -51,8 +53,15 @@ func main() {
 		public.POST("/login", auth.Login)
 		public.GET("/products", prod.ShowProducts) // New products page handler
 
+		// OAuth маршруты
+		public.GET("/auth/github", auth.InitiateGithubLogin)
+		public.GET("/auth/github/callback", auth.HandleGithubCallback)
+
 		// Маршрут для скачивания по токену (публичный, но требует токен)
 		public.GET("/download/:token", download.HandleDownload)
+
+		// Маршрут для отображения изображений продуктов (публичный)
+		public.GET("/images/products/:productID", download.ServeProductImage)
 	}
 
 	// Routes requiring authentication
@@ -77,8 +86,9 @@ func main() {
 		authenticated.POST("/checkout", order.Checkout)              // Оформить заказ
 		authenticated.GET("/order/success/", order.ShowOrderSuccess) // Страница успешного заказа
 
-		// Специальный маршрут для API создания ссылок скачивания
-		authenticated.GET("/secure-download", download.HandleSecureDownload)
+		// Защищенные маршруты для доступа к файлам
+		authenticated.GET("/secure-download", download.HandleSecureDownload)       // Через токен
+		authenticated.GET("/files/products/:productID", download.ServeProductFile) // Прямой доступ к файлам продуктов
 	}
 
 	// Start server

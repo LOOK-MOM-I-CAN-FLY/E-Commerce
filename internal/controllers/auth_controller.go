@@ -3,6 +3,7 @@ package controllers
 import (
 	"digital-marketplace/internal/database"
 	"digital-marketplace/internal/models"
+	"digital-marketplace/internal/services"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -128,10 +129,14 @@ func SetLoginStatus() gin.HandlerFunc {
 	}
 }
 
-type AuthController struct{}
+type AuthController struct {
+	oauthService *services.OAuthService
+}
 
 func NewAuthController() *AuthController {
-	return &AuthController{}
+	return &AuthController{
+		oauthService: services.NewOAuthService(),
+	}
 }
 
 // ShowHome renders the index page
@@ -159,6 +164,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 	// Existing registration logic...
 	email := c.PostForm("email")
 	password := c.PostForm("password")
+	username := c.PostForm("username") // Получаем имя пользователя из формы
 
 	// Add validation (e.g., check if email exists)
 	var existingUser models.User
@@ -174,6 +180,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 
 	user := models.User{
 		Email:     email,
+		Username:  username, // Сохраняем имя пользователя
 		Password:  string(hash),
 		CreatedAt: time.Now(),
 	}
@@ -249,9 +256,14 @@ func (ac *AuthController) ShowProfile(c *gin.Context) {
 		return
 	}
 
+	// Получаем товары, добавленные пользователем
+	var products []models.Product
+	database.DB.Where("user_id = ?", user.ID).Find(&products)
+
 	renderTemplate(c, "profile.html", gin.H{
-		"Username": "Пользователь", // Используем статический заголовок, так как поля нет в модели
 		"Email":    user.Email,
+		"Username": user.Username,
+		"Products": products,
 	})
 }
 
@@ -308,4 +320,51 @@ func (ac *AuthController) ChangePassword(c *gin.Context) {
 	renderTemplate(c, "profile.html", gin.H{
 		"PasswordSuccess": "Пароль успешно изменен",
 	})
+}
+
+// InitiateGithubLogin redirects to GitHub for authentication
+func (ac *AuthController) InitiateGithubLogin(c *gin.Context) {
+	state, err := ac.oauthService.GenerateState()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate state"})
+		return
+	}
+
+	// Сохраняем state в cookie для проверки в callback
+	c.SetCookie("oauth_state", state, 600, "/", "", false, true) // 10 минут
+
+	// Перенаправляем на GitHub для авторизации
+	url := ac.oauthService.GetGithubAuthURL(state)
+	c.Redirect(http.StatusFound, url)
+}
+
+// HandleGithubCallback processes the GitHub OAuth callback
+func (ac *AuthController) HandleGithubCallback(c *gin.Context) {
+	// Получаем и проверяем state
+	expectedState, err := c.Cookie("oauth_state")
+	if err != nil || c.Query("state") != expectedState {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
+		return
+	}
+
+	// Очищаем cookie state
+	c.SetCookie("oauth_state", "", -1, "/", "", false, true)
+
+	// Получаем code из параметров запроса
+	code := c.Query("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not provided"})
+		return
+	}
+
+	// Обрабатываем код авторизации через сервис
+	user, err := ac.oauthService.HandleGithubCallback(code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("GitHub login failed: %v", err)})
+		return
+	}
+
+	// Устанавливаем cookie с ID пользователя
+	c.SetCookie("user_id", fmt.Sprintf("%d", user.ID), 3600*24*7, "/", "", false, true)
+	c.Redirect(http.StatusFound, "/dashboard")
 }

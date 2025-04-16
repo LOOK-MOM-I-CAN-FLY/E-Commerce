@@ -14,7 +14,7 @@
       padding: 0;
       font-family: 'Glamick', sans-serif;
       color: #FFD700;
-      /* background-color: rgba(0, 0, 0, 0.5); */ /* Removed background color */
+      background-color: rgba(0, 0, 0, 0.5);
       overflow: hidden;
       height: 100vh;
     }
@@ -24,22 +24,69 @@
       width: 100%; height: 100%;
       object-fit: cover;
       z-index: -1;
-      /* opacity: 0; */ /* Removed default opacity */
       transition: opacity 0.5s ease-in-out;
     }
     #video2 {
-      opacity: 0; /* Hide second video initially */
+      opacity: 0;
     }
-    .content {
-      position: relative;
-      padding: 150px 60px; /* Ensure top padding is sufficient */
+    .form-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 70vh;
+      margin-top: 50px;
     }
-    input {
+    .login-form {
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 30px;
+      border-radius: 10px;
+      max-width: 400px;
+      width: 100%;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    input[type="email"], input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid #FFD700;
+      border-radius: 5px;
+      color: #FFD700;
+      font-family: 'Glamick', sans-serif;
+    }
+    input[type="submit"] {
+      background-color: #FFD700;
+      color: black;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: 'Glamick', sans-serif;
+      width: 100%;
+    }
+    .oauth-buttons {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .oauth-button {
       display: block;
-      margin-bottom: 1rem;
-      padding: 0.5rem;
-      width: 300px;
-      font-family: 'Glamick';
+      width: 100%;
+      padding: 10px 15px;
+      border-radius: 5px;
+      text-align: center;
+      text-decoration: none;
+      color: white;
+      font-family: 'Glamick', sans-serif;
+    }
+    .github-button {
+      background-color: #333;
+    }
+    .error-message {
+      color: #FF6B6B;
+      margin-bottom: 15px;
     }
     .navbar {
       display: flex;
@@ -71,6 +118,28 @@
     a:hover {
       text-decoration: underline;
     }
+    .login-title {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .or-divider {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+      color: #FFD700;
+      text-align: center;
+    }
+    .or-divider::before, .or-divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid #FFD700;
+    }
+    .or-divider::before {
+      margin-right: 10px;
+    }
+    .or-divider::after {
+      margin-left: 10px;
+    }
   </style>
 </head>
 <body>
@@ -95,35 +164,52 @@
     </div>
   </div>
 
-  <div class="content">
-    <h1>Login</h1>
-    <form method="POST" action="/login">
-      <input type="email" name="email" placeholder="Email" required>
-      <input type="password" name="password" placeholder="Password" required>
-      <button type="submit">Login</button>
-    </form>
+  <div class="form-container">
+    <div class="login-form">
+      <h2 class="login-title">Sign In</h2>
+      
+      {{if .Error}}
+        <div class="error-message">{{.Error}}</div>
+      {{end}}
+      
+      <form method="post" action="/login">
+        <div class="form-group">
+          <input type="email" name="email" placeholder="Email" required>
+        </div>
+        <div class="form-group">
+          <input type="password" name="password" placeholder="Password" required>
+        </div>
+        <div class="form-group">
+          <input type="submit" value="Sign In">
+        </div>
+      </form>
+      
+      <div class="or-divider">or</div>
+      
+      <div class="oauth-buttons">
+        <a href="/auth/github" class="oauth-button github-button">Sign in with GitHub</a>
+      </div>
+    </div>
   </div>
 
   <script>
     const video1 = document.getElementById('video1');
     const video2 = document.getElementById('video2');
-
     video1.src = "/static/video/a.MP4";
     video2.src = "/static/video/b.MP4";
 
-    /* video1.style.opacity = '1'; */ // Removed JS line setting initial opacity
     video1.play().catch(error => console.error("Video 1 Autoplay failed:", error));
 
     video1.addEventListener('ended', () => {
-      video1.style.opacity = '0'; // Hide video 1
-      video2.style.opacity = '1'; // Show video 2
+      video1.style.opacity = '0';
+      video2.style.opacity = '1';
       video2.currentTime = 0;
       video2.play().catch(error => console.error("Video 2 Play failed:", error));
     });
 
     video2.addEventListener('ended', () => {
-      video2.style.opacity = '0'; // Hide video 2
-      video1.style.opacity = '1'; // Show video 1
+      video2.style.opacity = '0';
+      video1.style.opacity = '1';
       video1.currentTime = 0;
       video1.play().catch(error => console.error("Video 1 Play failed:", error));
     });

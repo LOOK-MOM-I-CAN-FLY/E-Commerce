@@ -61,7 +61,7 @@ func (fs *FileService) GenerateDownloadToken(productID uint) (string, error) {
 	// Сохраняем информацию о скачивании
 	downloadInfo := DownloadInfo{
 		FileName:    filepath.Base(product.FilePath),
-		ContentType: guessContentType(filePath),
+		ContentType: fs.GuessContentType(filePath),
 		FilePath:    fullPath,
 		ExpireTime:  time.Now().Add(24 * time.Hour), // Токен действителен 24 часа
 	}
@@ -112,8 +112,8 @@ func (fs *FileService) DeleteToken(token string) {
 	delete(activeDownloads, token)
 }
 
-// guessContentType определяет тип содержимого файла
-func guessContentType(filePath string) string {
+// GuessContentType определяет тип содержимого файла
+func (fs *FileService) GuessContentType(filePath string) string {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
 	switch ext {

@@ -132,6 +132,7 @@ func (uc *UploadController) HandleUpload(c *gin.Context) {
 		return
 	}
 
+	// Успешное завершение
 	c.Redirect(http.StatusFound, "/dashboard")
 }
 

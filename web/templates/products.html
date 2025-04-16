@@ -16,7 +16,6 @@
       padding: 0;
       font-family: 'Glamick', sans-serif;
       color: #FFD700;
-      overflow: hidden;
       height: 100vh;
     }
 
@@ -44,6 +43,7 @@
       font-size: 1.1rem;
       z-index: 10;
       box-sizing: border-box;
+      background-color: rgba(0, 0, 0, 0.7);
     }
 
     .nav-center {
@@ -61,6 +61,70 @@
     .content {
       position: relative;
       padding: 150px 60px 60px;
+      max-width: 1000px;
+      margin: 0 auto;
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+
+    .product-card {
+      margin-bottom: 30px;
+      padding: 20px;
+      background-color: rgba(0,0,0,0.7);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .product-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(255, 215, 0, 0.2);
+    }
+
+    .product-image {
+      max-width: 200px;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 5px;
+      margin: 10px 0;
+      border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .product-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .buy-button {
+      padding: 8px 15px;
+      background: linear-gradient(135deg, #FFD700, #FF8C00);
+      color: black;
+      border-radius: 5px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .buy-button:hover {
+      text-decoration: none;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 10px rgba(255, 215, 0, 0.3);
+    }
+
+    .cart-button {
+      padding: 8px 15px;
+      background-color: transparent;
+      color: #FFD700;
+      border: 1px solid #FFD700;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .cart-button:hover {
+      background-color: rgba(255, 215, 0, 0.1);
+      transform: translateY(-2px);
     }
 
     a {
@@ -95,16 +159,18 @@
     <h1>Available Products</h1>
     <!-- Product listing block goes here -->
     {{range .AllProducts}}
-      <div style="margin-bottom: 20px; padding: 15px; background-color: rgba(0,0,0,0.5); border-radius: 10px;">
+      <div class="product-card">
         <h2>{{.Title}}</h2>
         <p>{{.Description}}</p>
-        {{if .FilePath}}
-          <img src="{{.FilePath}}" alt="{{.Title}}" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 5px; margin: 10px 0;">
+        {{if .ImagePath}}
+          <img src="/images/products/{{.ID}}" alt="{{.Title}}" class="product-image">
+        {{else if .FilePath}}
+          <img src="/images/products/{{.ID}}" alt="{{.Title}}" class="product-image">
         {{end}}
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-          <a href="/buy/{{.ID}}" style="padding: 5px 10px; background-color: #FFD700; color: black; border-radius: 5px; text-decoration: none;">Buy Now</a>
+        <div class="product-actions">
+          <a href="/buy/{{.ID}}" class="buy-button">Buy Now</a>
           <form action="/cart/add/{{.ID}}" method="POST" style="margin: 0;">
-            <button type="submit" style="padding: 5px 10px; background-color: transparent; color: #FFD700; border: 1px solid #FFD700; border-radius: 5px; cursor: pointer;">Add to Cart</button>
+            <button type="submit" class="cart-button">Add to Cart</button>
           </form>
         </div>
       </div>

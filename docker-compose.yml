@@ -23,16 +23,28 @@ services:
     build: .
     depends_on:
       - db
-      - mailhog # Добавлена зависимость от mailhog
-    ports:
-      - "8080:8080"
+      - mailhog
+    # Не публикуем порты напрямую, nginx будет проксировать
+    # ports:
+    #  - "8080:8080"
     environment:
       # Обновленные настройки SMTP для использования MailHog
       SMTP_HOST: mailhog
       SMTP_PORT: 1025
       # SMTP_USER и SMTP_PASS больше не нужны для MailHog
-      # SMTP_USER: your_email@example.com
-      # SMTP_PASS: your_password
+    volumes:
+      - ./uploads:/app/uploads
+
+  nginx:
+    image: nginx:latest
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - "80:80" # Публичный порт для доступа к приложению
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./uploads:/app/uploads:ro # Монтируем uploads только для чтения
 
 volumes:
   pgdata:
