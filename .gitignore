@@ -2,3 +2,7 @@
 *.a
 *.o
 *.env
+*.zip
+*.rar
+*.png
+*.conf
