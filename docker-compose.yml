@@ -8,32 +8,43 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: marketplace
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-
-  mailhog:
-    image: mailhog/mailhog
-    restart: always
-    ports:
-      - "1025:1025" # SMTP порт
-      - "8025:8025" # Веб-интерфейс MailHog
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   app:
     build: .
+    restart: always
     depends_on:
-      - db
-      - mailhog
-    # Не публикуем порты напрямую, nginx будет проксировать
-    # ports:
-    #  - "8080:8080"
+      db:
+        condition: service_healthy
     environment:
-      # Обновленные настройки SMTP для использования MailHog
-      SMTP_HOST: mailhog
-      SMTP_PORT: 1025
-      # SMTP_USER и SMTP_PASS больше не нужны для MailHog
+      # База данных
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: marketplace
+      # SMTP - используем Yandex SMTP из .env
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
+      # URL приложения для внешних ссылок
+      BASE_URL: http://localhost
+      # GitHub OAuth если используется
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-Ov23liXws0TwiB0tLXjk}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-417af136ec8e158c036d1c4b0d5c65a4bb5aa7c8}
+      OAUTH_REDIRECT_BASE: http://localhost
     volumes:
       - ./uploads:/app/uploads
+      - ./web:/app/web
 
   nginx:
     image: nginx:latest
@@ -45,6 +56,8 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./uploads:/app/uploads:ro # Монтируем uploads только для чтения
+      - ./web:/app/web:ro # Монтируем web только для чтения
 
 volumes:
   pgdata:
+    name: marketplace_pgdata

@@ -197,6 +197,11 @@ func sendOrderConfirmationEmail(toEmail string, orderID uint, filePaths []string
 
 	d := gomail.NewDialer(smtpHost, smtpPort, smtpUser, smtpPass)
 
+	// Если используем mailhog, отключаем SSL/TLS
+	if smtpHost == "mailhog" {
+		d.SSL = false
+	}
+
 	// Отправляем email
 	if err := d.DialAndSend(m); err != nil {
 		fmt.Println("Не удалось отправить email подтверждения заказа:", err)

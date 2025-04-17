@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/smtp"
 	"os"
+	"strings"
 )
 
 func SendProductToEmail(to string, product models.Product) error {
@@ -16,13 +17,22 @@ func SendProductToEmail(to string, product models.Product) error {
 	fromEmail := os.Getenv("SMTP_FROM_EMAIL")
 	baseURL := os.Getenv("BASE_URL")
 
-	if smtpHost == "" || smtpPort == "" || smtpUser == "" || smtpPass == "" {
-		fmt.Println("SMTP переменные не установлены. Пропускаем отправку email.")
+	if smtpHost == "" || smtpPort == "" {
+		fmt.Println("SMTP_HOST или SMTP_PORT не установлены. Пропускаем отправку email.")
+		return nil
+	}
+
+	// Для Mailhog не требуются учетные данные
+	if smtpHost != "mailhog" && (smtpUser == "" || smtpPass == "") {
+		fmt.Println("SMTP_USER или SMTP_PASS не установлены. Пропускаем отправку email.")
 		return nil
 	}
 
 	if fromEmail == "" {
-		fromEmail = smtpUser
+		fromEmail = "marketplace@example.com"
+		if smtpUser != "" {
+			fromEmail = smtpUser
+		}
 	}
 
 	// Если BASE_URL не установлен, используем localhost по умолчанию
@@ -60,7 +70,23 @@ func SendProductToEmail(to string, product models.Product) error {
 		"Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
 		body
 
-	// Настраиваем TLS-соединение
+	// Проверяем, используем ли MailHog (без TLS) или реальный SMTP-сервер (с TLS)
+	if strings.ToLower(smtpHost) == "mailhog" {
+		// Для MailHog используем простое SMTP без TLS и аутентификации
+		err = smtp.SendMail(
+			smtpHost+":"+smtpPort,
+			nil, // для mailhog аутентификация не нужна
+			fromEmail,
+			[]string{to},
+			[]byte(msg),
+		)
+		if err != nil {
+			return fmt.Errorf("Ошибка отправки через MailHog: %v", err)
+		}
+		return nil
+	}
+
+	// Для реальных SMTP-серверов используем TLS
 	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
 	tlsconfig := &tls.Config{
 		InsecureSkipVerify: true,
