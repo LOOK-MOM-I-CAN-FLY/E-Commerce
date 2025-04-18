@@ -1,4 +1,6 @@
 # Digital Marketplace
+![website_design (1)](https://github.com/user-attachments/assets/c7de1b06-2ce5-40a0-b8d9-02e6fa47beff)
+
 
 ## Настройка OAuth и миграция базы данных
 
