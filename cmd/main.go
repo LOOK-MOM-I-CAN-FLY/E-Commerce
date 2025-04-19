@@ -82,11 +82,11 @@ func main() {
 		authenticated.POST("/cart/add/:productID", cart.AddToCart)      // Add product to cart (POST to avoid accidental addition)
 		authenticated.POST("/cart/remove/:itemID", cart.RemoveFromCart) // Delete an item from the shopping cart (POST)
 
-		// Маршруты для оформления заказа
-		authenticated.POST("/checkout", order.Checkout)              // Оформить заказ
-		authenticated.GET("/order/success/", order.ShowOrderSuccess) // Страница успешного заказа
+		// Routes for placing an order
+		authenticated.POST("/checkout", order.Checkout)              // Place an order
+		authenticated.GET("/order/success/", order.ShowOrderSuccess) // Successful order page
 
-		// Защищенные маршруты для доступа к файлам
+		// Secure file access routes
 		authenticated.GET("/secure-download", download.HandleSecureDownload)       // Через токен
 		authenticated.GET("/files/products/:productID", download.ServeProductFile) // Прямой доступ к файлам продуктов
 	}
