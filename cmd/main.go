@@ -16,7 +16,7 @@ func main() {
 		log.Println("Не удалось загрузить .env файл:", err)
 	}
 
-	// Проверка, читается ли переменная
+	// Checking whether a variable is considered
 	log.Println("SMTP_HOST:", os.Getenv("SMTP_HOST"))
 	router := gin.Default()
 
@@ -38,9 +38,9 @@ func main() {
 	buy := controllers.NewBuyController()
 	dash := controllers.NewDashboardController()
 	prod := controllers.NewProductController()      // New product controller
-	cart := controllers.NewCartController()         // Инициализируем контроллер корзины
-	order := controllers.NewOrderController()       // Инициализируем контроллер заказов
-	download := controllers.NewDownloadController() // Новый контроллер для скачивания
+	cart := controllers.NewCartController()         // Initializing the bucket controller
+	order := controllers.NewOrderController()       // Initializing the order controller
+	download := controllers.NewDownloadController() // New controller for downloading
 
 	// Public routes (only set login status)
 	public := router.Group("/")
@@ -53,14 +53,14 @@ func main() {
 		public.POST("/login", auth.Login)
 		public.GET("/products", prod.ShowProducts) // New products page handler
 
-		// OAuth маршруты
+		// OAuth routes
 		public.GET("/auth/github", auth.InitiateGithubLogin)
 		public.GET("/auth/github/callback", auth.HandleGithubCallback)
 
-		// Маршрут для скачивания по токену (публичный, но требует токен)
+		// Token download route (public, but requires a token)
 		public.GET("/download/:token", download.HandleDownload)
 
-		// Маршрут для отображения изображений продуктов (публичный)
+		// The route for displaying product images (public)
 		public.GET("/images/products/:productID", download.ServeProductImage)
 	}
 
@@ -77,10 +77,10 @@ func main() {
 		authenticated.GET("/profile", auth.ShowProfile)                     // New profile page
 		authenticated.POST("/profile/change-password", auth.ChangePassword) // New password change handler
 
-		// Маршруты для корзины
-		authenticated.GET("/cart", cart.ShowCart)                       // Показать корзину
-		authenticated.POST("/cart/add/:productID", cart.AddToCart)      // Добавить товар в корзину (POST, чтобы избежать случайного добавления)
-		authenticated.POST("/cart/remove/:itemID", cart.RemoveFromCart) // Удалить товар из корзины (POST)
+		// Routes for backet
+		authenticated.GET("/cart", cart.ShowCart)                       // Show backet
+		authenticated.POST("/cart/add/:productID", cart.AddToCart)      // Add product to cart (POST to avoid accidental addition)
+		authenticated.POST("/cart/remove/:itemID", cart.RemoveFromCart) // Delete an item from the shopping cart (POST)
 
 		// Маршруты для оформления заказа
 		authenticated.POST("/checkout", order.Checkout)              // Оформить заказ
