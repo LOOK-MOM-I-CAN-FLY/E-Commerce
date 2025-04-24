@@ -13,14 +13,14 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Не удалось загрузить .env файл:", err)
+		log.Println("Failed to load .env file:", err)
 	}
 
-	// Проверка, читается ли переменная
+	// Check if environment variable is read correctly
 	log.Println("SMTP_HOST:", os.Getenv("SMTP_HOST"))
 	router := gin.Default()
 
-	// Initialize database first
+	// Initialize the database
 	database.InitDB()
 
 	// Load HTML templates
@@ -29,44 +29,44 @@ func main() {
 	// Serve static files
 	router.Static("/static", "./web/static")
 
-	// НЕ обслуживаем /uploads напрямую, используем новые защищенные маршруты
-	// router.Static("/uploads", "./uploads") // Закомментировано для безопасности
+	// Do NOT serve /uploads directly, use new protected routes instead
+	// router.Static("/uploads", "./uploads") // Commented out for security
 
 	// Initialize controllers
 	auth := controllers.NewAuthController()
 	upload := controllers.NewUploadController()
 	buy := controllers.NewBuyController()
 	dash := controllers.NewDashboardController()
-	prod := controllers.NewProductController()      // New product controller
-	cart := controllers.NewCartController()         // Инициализируем контроллер корзины
-	order := controllers.NewOrderController()       // Инициализируем контроллер заказов
-	download := controllers.NewDownloadController() // Новый контроллер для скачивания
+	prod := controllers.NewProductController()      // Product controller
+	cart := controllers.NewCartController()         // Cart controller
+	order := controllers.NewOrderController()       // Order controller
+	download := controllers.NewDownloadController() // Download controller
 
 	// Public routes (only set login status)
 	public := router.Group("/")
-	public.Use(controllers.SetLoginStatus()) // Apply middleware to set login status
+	public.Use(controllers.SetLoginStatus()) // Middleware to set login status
 	{
-		public.GET("/", auth.ShowHome) // Use new home handler
+		public.GET("/", auth.ShowHome) // Homepage handler
 		public.GET("/register", auth.ShowRegister)
 		public.POST("/register", auth.Register)
 		public.GET("/login", auth.ShowLogin)
 		public.POST("/login", auth.Login)
-		public.GET("/products", prod.ShowProducts) // New products page handler
+		public.GET("/products", prod.ShowProducts) // Product listing handler
 
-		// OAuth маршруты
+		// OAuth routes
 		public.GET("/auth/github", auth.InitiateGithubLogin)
 		public.GET("/auth/github/callback", auth.HandleGithubCallback)
 
-		// Маршрут для скачивания по токену (публичный, но требует токен)
+		// Route to download with token (public but token-protected)
 		public.GET("/download/:token", download.HandleDownload)
 
-		// Маршрут для отображения изображений продуктов (публичный)
+		// Route to serve product images (public)
 		public.GET("/images/products/:productID", download.ServeProductImage)
 	}
 
 	// Routes requiring authentication
 	authenticated := router.Group("/")
-	authenticated.Use(controllers.AuthRequired()) // Apply AuthRequired middleware
+	authenticated.Use(controllers.AuthRequired()) // Middleware to require authentication
 	{
 		authenticated.GET("/logout", auth.Logout)
 		authenticated.GET("/dashboard", dash.ShowDashboard)
@@ -74,21 +74,21 @@ func main() {
 		authenticated.POST("/upload", upload.HandleUpload)
 		authenticated.GET("/buy/:productID", buy.ShowBuyPage)
 		authenticated.POST("/buy/:productID", buy.HandleBuy)
-		authenticated.GET("/profile", auth.ShowProfile)                     // New profile page
-		authenticated.POST("/profile/change-password", auth.ChangePassword) // New password change handler
+		authenticated.GET("/profile", auth.ShowProfile)                     // Profile page
+		authenticated.POST("/profile/change-password", auth.ChangePassword) // Change password handler
 
-		// Маршруты для корзины
-		authenticated.GET("/cart", cart.ShowCart)                       // Показать корзину
-		authenticated.POST("/cart/add/:productID", cart.AddToCart)      // Добавить товар в корзину (POST, чтобы избежать случайного добавления)
-		authenticated.POST("/cart/remove/:itemID", cart.RemoveFromCart) // Удалить товар из корзины (POST)
+		// Cart routes
+		authenticated.GET("/cart", cart.ShowCart)                       // Show cart
+		authenticated.POST("/cart/add/:productID", cart.AddToCart)      // Add product to cart (POST to avoid accidental adds)
+		authenticated.POST("/cart/remove/:itemID", cart.RemoveFromCart) // Remove product from cart (POST)
 
-		// Маршруты для оформления заказа
-		authenticated.POST("/checkout", order.Checkout)              // Оформить заказ
-		authenticated.GET("/order/success/", order.ShowOrderSuccess) // Страница успешного заказа
+		// Checkout routes
+		authenticated.POST("/checkout", order.Checkout)              // Checkout handler
+		authenticated.GET("/order/success/", order.ShowOrderSuccess) // Order success page
 
-		// Защищенные маршруты для доступа к файлам
-		authenticated.GET("/secure-download", download.HandleSecureDownload)       // Через токен
-		authenticated.GET("/files/products/:productID", download.ServeProductFile) // Прямой доступ к файлам продуктов
+		// Protected routes for file access
+		authenticated.GET("/secure-download", download.HandleSecureDownload)       // Download via token
+		authenticated.GET("/files/products/:productID", download.ServeProductFile) // Direct access to product files
 	}
 
 	// Start server
