@@ -1,9 +1,13 @@
 package services
 
 import (
+	"bytes"
 	"crypto/tls"
 	"digital-marketplace/internal/models"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"mime/multipart"
 	"net/smtp"
 	"os"
 	"strings"
@@ -15,7 +19,7 @@ func SendProductToEmail(to string, product models.Product) error {
 	smtpUser := os.Getenv("SMTP_USER")
 	smtpPass := os.Getenv("SMTP_PASS")
 	fromEmail := os.Getenv("SMTP_FROM_EMAIL")
-	baseURL := os.Getenv("BASE_URL")
+	// baseURL := os.Getenv("BASE_URL") // Больше не нужен для ссылки
 
 	if smtpHost == "" || smtpPort == "" {
 		fmt.Println("SMTP_HOST или SMTP_PORT не установлены. Пропускаем отправку email.")
@@ -35,40 +39,79 @@ func SendProductToEmail(to string, product models.Product) error {
 		}
 	}
 
-	// Если BASE_URL не установлен, используем localhost по умолчанию
-	if baseURL == "" {
-		baseURL = "http://localhost:8080"
-	}
-
-	// Создаем защищенный токен для скачивания вместо прямой ссылки
+	// Получаем путь к файлу продукта
 	fileService := NewFileService()
-	downloadToken, err := fileService.GenerateDownloadToken(product.ID)
+	productFilePath, productFileName, err := fileService.GetProductFileInfo(product.ID)
 	if err != nil {
-		return fmt.Errorf("ошибка создания токена скачивания: %v", err)
+		return fmt.Errorf("ошибка получения информации о файле продукта: %v", err)
 	}
 
-	// Формируем безопасную ссылку на скачивание с использованием токена
-	downloadURL := fileService.GenerateDownloadURL(downloadToken, baseURL)
+	// Читаем файл
+	fileBytes, err := ioutil.ReadFile(productFilePath)
+	if err != nil {
+		return fmt.Errorf("ошибка чтения файла продукта '%s': %v", productFilePath, err)
+	}
 
-	body := fmt.Sprintf(`Уважаемый клиент!
+	bodyText := fmt.Sprintf(`Уважаемый клиент!
 
 Спасибо за покупку в нашем Digital Marketplace!
 
 Товар: %s
 Описание: %s
 
-Ссылка на скачивание (действительна 24 часа):
-%s
+Ваш продукт %s прикреплен к этому письму.
 
 С уважением,
-Команда Digital Marketplace`, product.Title, product.Description, downloadURL)
+Команда Digital Marketplace`, product.Title, product.Description, productFileName)
 
-	msg := "From: " + fromEmail + "\r\n" +
-		"To: " + to + "\r\n" +
-		"Subject: Ваш цифровой товар из Digital Marketplace\r\n" +
-		"MIME-Version: 1.0\r\n" +
-		"Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
-		body
+	// Создаем multipart сообщение
+	buf := new(bytes.Buffer)
+	writer := multipart.NewWriter(buf)
+
+	// Заголовки письма
+	headers := make(map[string]string)
+	headers["From"] = fromEmail
+	headers["To"] = to
+	headers["Subject"] = fmt.Sprintf("Ваш цифровой товар: %s", product.Title)
+	headers["MIME-Version"] = "1.0"
+	headers["Content-Type"] = "multipart/mixed; boundary=" + writer.Boundary()
+
+	for k, v := range headers {
+		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+	}
+	buf.WriteString("\r\n")
+
+	// Текстовая часть
+	part, err := writer.CreatePart(map[string][]string{
+		"Content-Type": {"text/plain; charset=UTF-8"},
+	})
+	if err != nil {
+		return fmt.Errorf("ошибка создания текстовой части письма: %v", err)
+	}
+	part.Write([]byte(bodyText))
+
+	// Часть с файлом (вложение)
+	part, err = writer.CreatePart(map[string][]string{
+		"Content-Type":              {"application/octet-stream"}, // Используем общий тип, т.к. файл - zip
+		"Content-Disposition":       {fmt.Sprintf("attachment; filename=\"%s\"", productFileName)},
+		"Content-Transfer-Encoding": {"base64"},
+	})
+	if err != nil {
+		return fmt.Errorf("ошибка создания части вложения: %v", err)
+	}
+
+	b64Writer := base64.NewEncoder(base64.StdEncoding, part)
+	_, err = b64Writer.Write(fileBytes)
+	if err != nil {
+		return fmt.Errorf("ошибка записи base64 данных файла: %v", err)
+	}
+	b64Writer.Close() // Важно закрыть кодировщик base64
+
+	// Закрываем multipart writer
+	writer.Close()
+
+	// Отправляем сообщение
+	msgBytes := buf.Bytes()
 
 	// Проверяем, используем ли MailHog (без TLS) или реальный SMTP-сервер (с TLS)
 	if strings.ToLower(smtpHost) == "mailhog" {
@@ -78,55 +121,59 @@ func SendProductToEmail(to string, product models.Product) error {
 			nil, // для mailhog аутентификация не нужна
 			fromEmail,
 			[]string{to},
-			[]byte(msg),
+			msgBytes,
 		)
 		if err != nil {
 			return fmt.Errorf("Ошибка отправки через MailHog: %v", err)
 		}
+		fmt.Printf("Письмо с вложением %s отправлено на %s через MailHog\n", productFileName, to)
 		return nil
 	}
 
 	// Для реальных SMTP-серверов используем TLS
 	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
 	tlsconfig := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // В реальном приложении должно быть false и настроен CA
 		ServerName:         smtpHost,
 	}
 
 	conn, err := tls.Dial("tcp", smtpHost+":"+smtpPort, tlsconfig)
 	if err != nil {
-		return fmt.Errorf("Ошибка TLS подключения: %v", err)
+		return fmt.Errorf("ошибка TLS подключения: %v", err)
 	}
+	defer conn.Close()
 
 	client, err := smtp.NewClient(conn, smtpHost)
 	if err != nil {
-		return fmt.Errorf("Ошибка создания SMTP клиента: %v", err)
+		return fmt.Errorf("ошибка создания SMTP клиента: %v", err)
 	}
+	defer client.Close()
 
 	if err = client.Auth(auth); err != nil {
-		return fmt.Errorf("Ошибка аутентификации: %v", err)
+		return fmt.Errorf("ошибка аутентификации: %v", err)
 	}
 
 	if err = client.Mail(fromEmail); err != nil {
-		return err
+		return fmt.Errorf("ошибка команды MAIL FROM: %v", err)
 	}
 	if err = client.Rcpt(to); err != nil {
-		return err
+		return fmt.Errorf("ошибка команды RCPT TO: %v", err)
 	}
 
 	w, err := client.Data()
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка команды DATA: %v", err)
 	}
 
-	_, err = w.Write([]byte(msg))
+	_, err = w.Write(msgBytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка записи тела письма: %v", err)
 	}
 	err = w.Close()
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка закрытия DATA writer: %v", err)
 	}
 
+	fmt.Printf("Письмо с вложением %s отправлено на %s через %s\n", productFileName, to, smtpHost)
 	return client.Quit()
 }

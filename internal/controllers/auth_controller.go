@@ -5,6 +5,7 @@ import (
 	"digital-marketplace/internal/models"
 	"digital-marketplace/internal/services"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -154,7 +155,7 @@ func (ac *AuthController) ShowRegister(c *gin.Context) {
 	}
 
 	if isLoggedIn {
-		c.Redirect(http.StatusFound, "/dashboard")
+		c.Redirect(http.StatusFound, "/profile")
 		return
 	}
 	renderTemplate(c, "register.html", gin.H{})
@@ -207,7 +208,7 @@ func (ac *AuthController) ShowLogin(c *gin.Context) {
 	}
 
 	if isLoggedIn {
-		c.Redirect(http.StatusFound, "/dashboard")
+		c.Redirect(http.StatusFound, "/profile")
 		return
 	}
 	renderTemplate(c, "login.html", gin.H{})
@@ -239,7 +240,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 
 	// Use http.SameSiteLaxMode for broader compatibility
 	c.SetCookie("user_id", fmt.Sprintf("%d", user.ID), 3600*24*7, "/", "", false, true) // Longer cookie duration (1 week)
-	c.Redirect(http.StatusFound, "/dashboard")
+	c.Redirect(http.StatusFound, "/profile")
 }
 
 func (ac *AuthController) Logout(c *gin.Context) {
@@ -260,10 +261,27 @@ func (ac *AuthController) ShowProfile(c *gin.Context) {
 	var products []models.Product
 	database.DB.Where("user_id = ?", user.ID).Find(&products)
 
+	// Получаем историю заказов пользователя
+	var orders []models.Order
+	database.DB.Preload("Items.Product"). // Загружаем OrderItems и связанные Products
+						Where("user_id = ?", user.ID).
+						Order("created_at desc"). // Сортируем по дате, новые сначала
+						Find(&orders)
+
+	// Добавляем логирование для проверки заказов
+	log.Printf("User %d orders fetched: %+v\n", user.ID, orders)
+	for _, order := range orders {
+		log.Printf("  Order ID: %d, Items: %+v\n", order.ID, order.Items)
+		for _, item := range order.Items {
+			log.Printf("    Item ID: %d, Product: %+v\n", item.ID, item.Product)
+		}
+	}
+
 	renderTemplate(c, "profile.html", gin.H{
 		"Email":    user.Email,
 		"Username": user.Username,
 		"Products": products,
+		"Orders":   orders, // Передаем заказы в шаблон
 	})
 }
 
@@ -366,5 +384,5 @@ func (ac *AuthController) HandleGithubCallback(c *gin.Context) {
 
 	// Устанавливаем cookie с ID пользователя
 	c.SetCookie("user_id", fmt.Sprintf("%d", user.ID), 3600*24*7, "/", "", false, true)
-	c.Redirect(http.StatusFound, "/dashboard")
+	c.Redirect(http.StatusFound, "/profile")
 }

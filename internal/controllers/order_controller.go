@@ -3,14 +3,10 @@ package controllers
 import (
 	"digital-marketplace/internal/database"
 	"digital-marketplace/internal/models"
-	"digital-marketplace/internal/services"
 	"fmt"
 	"net/http"
-	"os"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gopkg.in/gomail.v2"
 )
 
 type OrderController struct{}
@@ -79,14 +75,18 @@ func (oc *OrderController) Checkout(c *gin.Context) {
 	}
 
 	// 5. Commit transaction
+	fmt.Println("Attempting to commit transaction for order creation...") // Лог перед коммитом
 	if err := tx.Commit().Error; err != nil {
+		// Важно логировать ошибку коммита!
 		fmt.Println("Error committing transaction:", err)
+		// Rollback здесь уже не нужен, так как Commit не удался
 		c.Redirect(http.StatusFound, "/cart") // Add error feedback
 		return
 	}
+	fmt.Println("Transaction committed successfully!") // Лог после успешного коммита
 
-	// 6. Send confirmation email with product files/links (Implement this)
-	go sendOrderConfirmationEmail(user.Email, order.ID, productFilePaths) // Run in goroutine
+	// 6. Send confirmation email (Now calls the function defined in buy_controller.go indirectly via package scope or needs refactoring)
+	go sendOrderConfirmationEmail(user.Email, order.ID)
 
 	// 7. Redirect to a success page (or dashboard)
 	// TODO: Create an order confirmation page
@@ -115,97 +115,3 @@ func (oc *OrderController) ShowOrderSuccess(c *gin.Context) {
 }
 
 // --- Email Sending Logic (Example using gomail) ---
-
-func sendOrderConfirmationEmail(toEmail string, orderID uint, filePaths []string) {
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPortStr := os.Getenv("SMTP_PORT")
-	smtpUser := os.Getenv("SMTP_USER")
-	smtpPass := os.Getenv("SMTP_PASS")
-	fromEmail := os.Getenv("SMTP_FROM_EMAIL") // Email to send from
-	baseURL := os.Getenv("BASE_URL")
-
-	if fromEmail == "" {
-		fromEmail = "orders@digital-marketplace.com"
-	}
-
-	// Если BASE_URL не установлен, используем localhost по умолчанию
-	if baseURL == "" {
-		baseURL = "http://localhost:8080"
-	}
-
-	// Проверяем, что хост и порт установлены
-	if smtpHost == "" || smtpPortStr == "" {
-		fmt.Println("SMTP_HOST или SMTP_PORT не установлены. Пропускаем отправку email.")
-		return
-	}
-
-	smtpPort, err := strconv.Atoi(smtpPortStr)
-	if err != nil {
-		fmt.Println("Invalid SMTP_PORT:", err)
-		return
-	}
-
-	m := gomail.NewMessage()
-	m.SetHeader("From", fromEmail)
-	m.SetHeader("To", toEmail)
-	m.SetHeader("Subject", fmt.Sprintf("Ваш заказ #%d в Digital Marketplace", orderID))
-
-	// Создаем содержимое письма с информацией о заказе и добавляем ссылки на скачивание
-	body := fmt.Sprintf(`Уважаемый клиент!
-
-Спасибо за ваш заказ #%d в Digital Marketplace!
-
-Ваш заказ успешно обработан. Ниже приведены ссылки для скачивания приобретенных товаров:
-
-`, orderID)
-
-	// Получаем продукты, связанные с этим заказом
-	var orderItems []models.OrderItem
-	database.DB.Preload("Product").Where("order_id = ?", orderID).Find(&orderItems)
-
-	// Создаем сервис для генерации безопасных URL
-	fileService := services.NewFileService()
-
-	// Если у нас есть товары в заказе, добавляем их в тело письма
-	if len(orderItems) > 0 {
-		for i, item := range orderItems {
-			product := item.Product
-
-			// Создаем защищенный токен для скачивания
-			downloadToken, tokenErr := fileService.GenerateDownloadToken(product.ID)
-			if tokenErr != nil {
-				fmt.Printf("Ошибка создания токена для продукта %d: %v\n", product.ID, tokenErr)
-				continue
-			}
-
-			// Формируем безопасную ссылку на скачивание с использованием токена
-			downloadURL := fileService.GenerateDownloadURL(downloadToken, baseURL)
-
-			body += fmt.Sprintf("%d. %s: %s (ссылка действительна 24 часа)\n",
-				i+1, product.Title, downloadURL)
-		}
-	}
-
-	body += `
-С уважением,
-Команда Digital Marketplace`
-
-	m.SetBody("text/plain", body)
-
-	// Больше не прикрепляем файлы - используем только ссылки для скачивания
-	// Это решает проблему с размером вложений и доступностью
-
-	d := gomail.NewDialer(smtpHost, smtpPort, smtpUser, smtpPass)
-
-	// Если используем mailhog, отключаем SSL/TLS
-	if smtpHost == "mailhog" {
-		d.SSL = false
-	}
-
-	// Отправляем email
-	if err := d.DialAndSend(m); err != nil {
-		fmt.Println("Не удалось отправить email подтверждения заказа:", err)
-	} else {
-		fmt.Println("Email подтверждения заказа успешно отправлен на", toEmail)
-	}
-}

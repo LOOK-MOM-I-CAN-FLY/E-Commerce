@@ -6,8 +6,12 @@ import (
 	"digital-marketplace/internal/services"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"gopkg.in/gomail.v2"
 )
 
 type BuyController struct{}
@@ -21,22 +25,26 @@ func (bc *BuyController) ShowBuyPage(c *gin.Context) {
 	productID := c.Param("productID") // Get product ID from URL parameter
 
 	var product models.Product
+	// Use Preload to fetch user info if needed in the template later
 	result := database.DB.First(&product, productID)
 	if result.Error != nil {
-		// Handle product not found - maybe render a specific error page or redirect
 		renderTemplate(c, "error.html", gin.H{"Error": "Товар не найден"})
 		return
 	}
 
-	// Pass the product details to the buy.html template
 	renderTemplate(c, "buy.html", gin.H{
 		"Product": product,
 	})
 }
 
-// HandleBuy processes the purchase request for a specific product
+// HandleBuy processes the purchase request, creates an order, and sends confirmation
 func (bc *BuyController) HandleBuy(c *gin.Context) {
-	productID := c.Param("productID") // Get product ID from URL parameter
+	productIDStr := c.Param("productID") // Get product ID from URL parameter
+	productID, err := strconv.ParseUint(productIDStr, 10, 64)
+	if err != nil {
+		renderTemplate(c, "error.html", gin.H{"Error": "Неверный ID товара"})
+		return
+	}
 
 	// Get user from context (set by AuthRequired middleware)
 	user, exists := getUserFromContext(c)
@@ -46,25 +54,146 @@ func (bc *BuyController) HandleBuy(c *gin.Context) {
 	}
 
 	var product models.Product
-	result := database.DB.First(&product, productID)
-	if result.Error != nil {
-		c.String(http.StatusNotFound, "Товар не найден") // Keep simple error for now
+	// Fetch the product again to ensure it exists
+	if err := database.DB.First(&product, uint(productID)).Error; err != nil {
+		renderTemplate(c, "error.html", gin.H{"Error": "Товар не найден"})
 		return
 	}
 
-	// Use the logged-in user's email
-	email := user.Email
+	// --- Create Order and OrderItem in Transaction ---
+	tx := database.DB.Begin()
 
-	err := services.SendProductToEmail(email, product)
-	if err != nil {
-		// Render error on the buy page
+	// 1. Create Order
+	order := models.Order{
+		UserID:    user.ID,
+		CreatedAt: time.Now(),
+	}
+	if err := tx.Create(&order).Error; err != nil {
+		tx.Rollback()
+		fmt.Printf("Error creating order for product %d by user %d: %v\n", product.ID, user.ID, err)
 		renderTemplate(c, "buy.html", gin.H{
-			"Product": product, // Pass product back to template
-			"Error":   fmt.Sprintf("Ошибка отправки файла на email: %v", err),
+			"Product": product,
+			"Error":   "Не удалось создать заказ. Попробуйте снова.",
 		})
 		return
 	}
 
-	// Redirect to a success page with details about the purchase
-	c.Redirect(http.StatusFound, "/order/success/?product="+product.Title+"&email="+email)
+	// 2. Create OrderItem
+	orderItem := models.OrderItem{
+		OrderID:   order.ID,
+		ProductID: product.ID,
+	}
+	if err := tx.Create(&orderItem).Error; err != nil {
+		tx.Rollback()
+		fmt.Printf("Error creating order item for order %d, product %d: %v\n", order.ID, product.ID, err)
+		renderTemplate(c, "buy.html", gin.H{
+			"Product": product,
+			"Error":   "Не удалось добавить товар в заказ. Попробуйте снова.",
+		})
+		return
+	}
+
+	// 3. Commit Transaction
+	fmt.Println("Attempting to commit transaction for single product purchase...")
+	if err := tx.Commit().Error; err != nil {
+		fmt.Println("Error committing transaction:", err)
+		// Rollback is implicitly done if Commit fails
+		renderTemplate(c, "buy.html", gin.H{
+			"Product": product,
+			"Error":   "Ошибка сохранения заказа. Попробуйте снова.",
+		})
+		return
+	}
+	fmt.Println("Transaction committed successfully!")
+
+	// 4. Send confirmation email (using the copied function)
+	// Pass only the file path for the purchased product
+	go sendOrderConfirmationEmail(user.Email, order.ID) // Adjusted call signature
+
+	// 5. Redirect to a generic success page
+	c.Redirect(http.StatusFound, "/order/success/")
+}
+
+// --- Copied Email Sending Logic (Example using gomail) ---
+// Note: Ideally, this should be in a shared service package.
+// Adjusted to not require filePaths parameter as it fetches items by orderID.
+func sendOrderConfirmationEmail(toEmail string, orderID uint) {
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPortStr := os.Getenv("SMTP_PORT")
+	smtpUser := os.Getenv("SMTP_USER")
+	smtpPass := os.Getenv("SMTP_PASS")
+	fromEmail := os.Getenv("SMTP_FROM_EMAIL") // Email to send from
+	baseURL := os.Getenv("BASE_URL")
+
+	if fromEmail == "" {
+		fromEmail = "orders@digital-marketplace.com" // Default sender
+	}
+	if baseURL == "" {
+		baseURL = "http://localhost:8080" // Default base URL
+	}
+
+	if smtpHost == "" || smtpPortStr == "" {
+		fmt.Println("SMTP_HOST или SMTP_PORT не установлены. Пропускаем отправку email.")
+		return
+	}
+	smtpPort, err := strconv.Atoi(smtpPortStr)
+	if err != nil {
+		fmt.Println("Invalid SMTP_PORT:", err)
+		return
+	}
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", fromEmail)
+	m.SetHeader("To", toEmail)
+	m.SetHeader("Subject", fmt.Sprintf("Ваш заказ #%d в Digital Marketplace", orderID))
+
+	body := fmt.Sprintf(`Уважаемый клиент!
+
+Спасибо за ваш заказ #%d в Digital Marketplace!
+
+Ваш заказ успешно обработан. Ниже приведены ссылки для скачивания приобретенных товаров:
+
+`, orderID)
+
+	var orderItems []models.OrderItem
+	// Fetch order items (including the product details) for the specific order
+	dbResult := database.DB.Preload("Product").Where("order_id = ?", orderID).Find(&orderItems)
+	if dbResult.Error != nil {
+		fmt.Printf("Ошибка получения товаров для заказа %d при отправке email: %v\n", orderID, dbResult.Error)
+		// Decide if you want to send the email without product links or just return
+		return
+	}
+
+	fileService := services.NewFileService()
+
+	if len(orderItems) > 0 {
+		for i, item := range orderItems {
+			product := item.Product
+			downloadToken, tokenErr := fileService.GenerateDownloadToken(product.ID)
+			if tokenErr != nil {
+				fmt.Printf("Ошибка создания токена для продукта %d (заказ %d): %v\n", product.ID, orderID, tokenErr)
+				continue // Skip this item if token generation fails
+			}
+			downloadURL := fileService.GenerateDownloadURL(downloadToken, baseURL)
+			body += fmt.Sprintf("%d. %s: %s (ссылка действительна 24 часа)\n", i+1, product.Title, downloadURL)
+		}
+	} else {
+		body += "Не удалось найти информацию о товарах в этом заказе.\n"
+	}
+
+	body += `
+С уважением,
+Команда Digital Marketplace`
+	m.SetBody("text/plain", body)
+
+	d := gomail.NewDialer(smtpHost, smtpPort, smtpUser, smtpPass)
+	if smtpHost == "mailhog" { // Specific handling for mailhog
+		d.SSL = false
+	}
+
+	if err := d.DialAndSend(m); err != nil {
+		fmt.Printf("Не удалось отправить email подтверждения заказа #%d на %s: %v\n", orderID, toEmail, err)
+	} else {
+		fmt.Printf("Email подтверждения заказа #%d успешно отправлен на %s\n", orderID, toEmail)
+	}
 }

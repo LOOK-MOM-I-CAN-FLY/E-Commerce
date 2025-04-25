@@ -36,7 +36,6 @@ func main() {
 	auth := controllers.NewAuthController()
 	upload := controllers.NewUploadController()
 	buy := controllers.NewBuyController()
-	dash := controllers.NewDashboardController()
 	prod := controllers.NewProductController()      // Product controller
 	cart := controllers.NewCartController()         // Cart controller
 	order := controllers.NewOrderController()       // Order controller
@@ -69,7 +68,6 @@ func main() {
 	authenticated.Use(controllers.AuthRequired()) // Middleware to require authentication
 	{
 		authenticated.GET("/logout", auth.Logout)
-		authenticated.GET("/dashboard", dash.ShowDashboard)
 		authenticated.GET("/upload", upload.ShowUploadPage)
 		authenticated.POST("/upload", upload.HandleUpload)
 		authenticated.GET("/buy/:productID", buy.ShowBuyPage)

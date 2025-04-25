@@ -7,7 +7,7 @@
 *.png
 *.conf
 uploads/*.zip
-uploads/
+uploads/*.png
 # Большие бинарные файлы
 main
 marketplace

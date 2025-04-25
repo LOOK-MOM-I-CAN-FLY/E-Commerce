@@ -49,7 +49,7 @@
       position: fixed;
       top: 0;
       width: 100%;
-      font-size: 1.1rem;
+      font-size: 1.25rem;
       z-index: 10;
       box-sizing: border-box;
       background-color: rgba(0, 0, 0, 0.5);
@@ -114,6 +114,38 @@
       border-bottom: 1px solid #FFD700;
       padding-bottom: 5px;
     }
+
+    /* Стили для истории покупок */
+    .orders-list {
+      margin-top: 20px;
+    }
+    .order-card {
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .order-card h4 {
+      margin: 0 0 10px 0;
+      border-bottom: 1px solid rgba(255, 215, 0, 0.5);
+      padding-bottom: 5px;
+    }
+    .order-card ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .order-card li {
+      margin-bottom: 5px;
+    }
+    .no-orders {
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    /* Конец стилей для истории покупок */
+
   </style>
 </head>
 <body>
@@ -171,6 +203,33 @@
         <p><a href="/upload">Add your first product</a></p>
       </div>
     {{end}}
+
+    <!-- Добавляем раздел истории покупок -->
+    <h2 class="section-title">Purchase History</h2>
+    {{if .Orders}}
+      <div class="orders-list">
+        {{range .Orders}}
+          <div class="order-card">
+            <h4>Order #{{.ID}} - {{.CreatedAt.Format "02 Jan 2006 15:04"}}</h4>
+            <ul>
+              {{range .Items}}
+                <li>
+                  <strong>{{.Product.Title}}</strong>
+                  <!-- Можно добавить ссылку на скачивание, если нужно -->
+                  <!-- <a href="/secure-download?product_id={{.Product.ID}}">Download</a> -->
+                </li>
+              {{end}}
+            </ul>
+          </div>
+        {{end}}
+      </div>
+    {{else}}
+      <div class="no-orders">
+        <p>You haven't made any purchases yet.</p>
+      </div>
+    {{end}}
+    <!-- Конец раздела истории покупок -->
+
   </div>
 
   <script>

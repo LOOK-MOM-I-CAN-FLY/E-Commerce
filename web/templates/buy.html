@@ -45,8 +45,10 @@
       position: fixed;
       top: 0;
       width: 100%;
+      font-size: 1.25rem;
       z-index: 10;
       box-sizing: border-box;
+      background-color: rgba(0, 0, 0, 0.5);
     }
 
     .nav-center {
@@ -90,8 +92,12 @@
       <a href="/cart">Cart</a>
     </div>
     <div class="nav-right">
-      <a href="/register">Sign Up</a>
-      <a href="/login">Log In</a>
+      {{if not .IsLoggedIn}}
+        <a href="/register">Sign Up</a>
+        <a href="/login">Log In</a>
+      {{else}}
+        <a href="/logout">Log Out</a>
+      {{end}}
     </div>
   </div>
 

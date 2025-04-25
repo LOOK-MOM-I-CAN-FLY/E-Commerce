@@ -242,7 +242,7 @@ func (uc *UploadController) HandleUpload(c *gin.Context) {
 	// --- Конец сохранения в БД ---
 
 	// Успешное завершение
-	c.Redirect(http.StatusFound, "/dashboard")
+	c.Redirect(http.StatusFound, "/profile")
 }
 
 // Функция для создания zip-архива из файлов в директории

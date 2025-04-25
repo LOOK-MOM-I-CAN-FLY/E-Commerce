@@ -112,6 +112,28 @@ func (fs *FileService) DeleteToken(token string) {
 	delete(activeDownloads, token)
 }
 
+// GetProductFileInfo возвращает путь и имя файла для указанного продукта
+func (fs *FileService) GetProductFileInfo(productID uint) (filePath string, fileName string, err error) {
+	// Получаем информацию о продукте
+	var product models.Product
+	if err := database.DB.First(&product, productID).Error; err != nil {
+		return "", "", errors.New("продукт не найден")
+	}
+
+	// Формируем и проверяем путь к файлу
+	relativeFilePath := strings.TrimPrefix(product.FilePath, "/")
+	if !strings.HasPrefix(relativeFilePath, "uploads/") {
+		relativeFilePath = "uploads/" + filepath.Base(relativeFilePath)
+	}
+
+	fullPath := "./" + relativeFilePath
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		return "", "", errors.New("файл продукта не существует: " + fullPath)
+	}
+
+	return fullPath, filepath.Base(product.FilePath), nil
+}
+
 // GuessContentType определяет тип содержимого файла
 func (fs *FileService) GuessContentType(filePath string) string {
 	ext := strings.ToLower(filepath.Ext(filePath))

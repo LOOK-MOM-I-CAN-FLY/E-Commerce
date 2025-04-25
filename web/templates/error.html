@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Error</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/static/icon/iconic.png">
+  <style>
+    @font-face {
+      font-family: 'Glamick';
+      src: url('/static/fonts/glamick.otf') format('opentype');
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: 'Glamick', sans-serif;
+      color: #FFD700;
+      background-color: #111; /* Темный фон для страницы ошибки */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      text-align: center;
+    }
+    .error-container {
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 40px;
+      border-radius: 10px;
+      border: 1px solid #FFD700;
+    }
+    h1 {
+      color: #FF4136; /* Красный цвет для заголовка ошибки */
+      margin-bottom: 20px;
+    }
+    p {
+      font-size: 1.2em;
+      margin-bottom: 30px;
+    }
+    a {
+      color: #FFD700;
+      text-decoration: none;
+      padding: 10px 20px;
+      border: 1px solid #FFD700;
+      border-radius: 5px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    a:hover {
+      background-color: #FFD700;
+      color: black;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-container">
+    <h1>Oops! An Error Occurred</h1>
+    <!-- Отображаем сообщение об ошибке, переданное из контроллера -->
+    <p>{{if .Error}}{{.Error}}{{else}}Something went wrong. Please try again later.{{end}}</p>
+    <a href="/">Go Back to Home</a>
+    <!-- Можно добавить ссылку на предыдущую страницу, если это возможно -->
+    <!-- <a href="javascript:history.back()">Go Back</a> -->
+  </div>
+</body>
+</html> 
