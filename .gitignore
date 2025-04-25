@@ -11,3 +11,5 @@ uploads/*.png
 # Большие бинарные файлы
 main
 marketplace
+go.mod
+go.sum

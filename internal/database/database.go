@@ -16,7 +16,7 @@ var DB *gorm.DB
 func InitDB() {
 	host := os.Getenv("DB_HOST")
 	if host == "" {
-		host = "localhost" // Используем имя сервиса db по умолчанию в Docker
+		host = "localhost"
 	}
 	port := os.Getenv("DB_PORT")
 	if port == "" {
