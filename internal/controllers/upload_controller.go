@@ -9,9 +9,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type UploadController struct{}
@@ -20,9 +24,28 @@ func NewUploadController() *UploadController {
 	return &UploadController{}
 }
 
+// Регулярное выражение для валидации имен тегов:
+// Разрешает буквы (Unicode), цифры, пробелы, дефисы.
+// Запрещает начинаться/заканчиваться пробелом/дефисом.
+// Запрещает несколько пробелов/дефисов подряд.
+//var tagNameRegex = regexp.MustCompile(`^[\p{L}\d]+(?:[\s-][\p{L}\d]+)*$`) // Чуть усложним позже, начнем с простого
+
 func (uc *UploadController) ShowUploadPage(c *gin.Context) {
-	// Use renderTemplate, assuming upload.html doesn't need specific data beyond login status
-	renderTemplate(c, "upload.html", gin.H{})
+	// Загружаем существующие теги для передачи в шаблон
+	var existingTags []models.Tag
+	dbResult := database.DB.Order("name asc").Find(&existingTags)
+	if dbResult.Error != nil {
+		// Логгируем ошибку, но продолжаем рендерить страницу,
+		// возможно, без списка существующих тегов
+		fmt.Println("Error fetching existing tags:", dbResult.Error)
+		renderTemplate(c, "upload.html", gin.H{"Error": "Could not load existing tags."})
+		return
+	}
+
+	// Используем renderTemplate, передавая существующие теги
+	renderTemplate(c, "upload.html", gin.H{
+		"ExistingTags": existingTags, // Передаем теги в шаблон
+	})
 }
 
 func (uc *UploadController) HandleUpload(c *gin.Context) {
@@ -36,8 +59,70 @@ func (uc *UploadController) HandleUpload(c *gin.Context) {
 
 	title := c.PostForm("title")
 	description := c.PostForm("description")
-	// Цена может понадобиться в будущем при добавлении функционала цены
-	// price := c.PostForm("price")
+	priceStr := c.PostForm("price") // Получаем цену как строку
+	// Конвертируем цену в float64
+	price, err := strconv.ParseFloat(priceStr, 64)
+	if err != nil {
+		renderTemplate(c, "upload.html", gin.H{"Error": "Invalid price format"})
+		return
+	}
+
+	// Получаем теги из формы
+	existingTagIDsStr := c.PostFormArray("existing_tags") // Массив строк ID
+	// newTagsStr := c.PostForm("new_tags") // Старый способ
+	newTagsListStr := c.PostForm("new_tags_list") // Новый способ: читаем из скрытого поля
+
+	// --- Обработка тегов ---
+	var tagIDs []int
+	processedTagNames := make(map[string]bool) // Для избежания дубликатов по имени
+
+	// 1. Обрабатываем существующие выбранные теги
+	for _, idStr := range existingTagIDsStr {
+		id, err := strconv.Atoi(idStr)
+		if err == nil {
+			tagIDs = append(tagIDs, id)
+			// Можно добавить получение имени тега по ID и добавление в processedTagNames,
+			// чтобы новые теги с таким же именем не дублировались
+		}
+	}
+
+	// 2. Обрабатываем новые теги из newTagsListStr
+	// newTagNames := strings.Split(newTagsStr, ",") // Старый способ
+	newTagNames := strings.Split(newTagsListStr, ",") // Новый способ
+	for _, name := range newTagNames {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" {
+			continue // Пропускаем пустые строки
+		}
+
+		// **ВАЛИДАЦИЯ ИМЕНИ ТЕГА (Серверная)**
+		// Простая валидация: не пустое, можно добавить regex позже
+		if !isValidTagName(trimmedName) { // Замените на вашу функцию валидации
+			renderTemplate(c, "upload.html", gin.H{"Error": fmt.Sprintf("Invalid tag name: '%s'. Only letters, numbers, spaces, hyphens allowed.", trimmedName)})
+			return
+		}
+
+		// Проверяем, не обрабатывали ли уже тег с таким именем (из существующих или новых)
+		lowerCaseName := strings.ToLower(trimmedName)
+		if processedTagNames[lowerCaseName] {
+			continue
+		}
+
+		var tag models.Tag
+		// Ищем или создаем тег (регистронезависимо)
+		err := database.DB.Where("lower(name) = ?", lowerCaseName).FirstOrCreate(&tag, models.Tag{Name: trimmedName}).Error
+		if err != nil {
+			renderTemplate(c, "upload.html", gin.H{"Error": fmt.Sprintf("Error processing tag '%s': %v", trimmedName, err)})
+			return
+		}
+
+		tagIDs = append(tagIDs, tag.ID)
+		processedTagNames[lowerCaseName] = true
+	}
+
+	// Удаляем дубликаты ID, если они могли появиться
+	tagIDs = uniqueInts(tagIDs)
+	// --- Конец обработки тегов ---
 
 	// Обеспечим существование директории загрузок
 	uploadDir := "./uploads"
@@ -115,22 +200,46 @@ func (uc *UploadController) HandleUpload(c *gin.Context) {
 	product := models.Product{
 		Title:       title,
 		Description: description,
+		Price:       price,
 		FilePath:    webZipPath,
 		ImagePath:   imagePath,
 		UserID:      user.ID,
 		CreatedAt:   time.Now(),
 	}
 
-	result := database.DB.Create(&product)
-	if result.Error != nil {
-		// При ошибке удаляем созданные файлы
+	// --- Сохранение в БД в транзакции ---
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		// 1. Создаем продукт
+		if err := tx.Create(&product).Error; err != nil {
+			return err // Возвращаем ошибку для отката транзакции
+		}
+
+		// 2. Создаем связи с тегами
+		if len(tagIDs) > 0 {
+			var productTags []models.ProductTag
+			for _, tagID := range tagIDs {
+				productTags = append(productTags, models.ProductTag{ProductID: product.ID, TagID: tagID})
+			}
+			if err := tx.Create(&productTags).Error; err != nil {
+				return err // Возвращаем ошибку для отката транзакции
+			}
+		}
+
+		return nil // Все успешно, коммитим транзакцию
+	})
+
+	if err != nil {
+		// Ошибка транзакции: удаляем созданные файлы и показываем ошибку
 		os.Remove(zipFilePath)
 		if imagePath != "" {
-			os.Remove(filepath.Join(".", imagePath))
+			// Путь к файлу на диске, а не веб-путь
+			localImagePath := filepath.Join(".", imagePath) // Предполагаем, что webImagePath начинается с /uploads/
+			os.Remove(localImagePath)
 		}
-		renderTemplate(c, "upload.html", gin.H{"Error": "Ошибка сохранения товара в базу данных: " + result.Error.Error()})
+		renderTemplate(c, "upload.html", gin.H{"Error": "Ошибка сохранения товара или тегов: " + err.Error()})
 		return
 	}
+	// --- Конец сохранения в БД ---
 
 	// Успешное завершение
 	c.Redirect(http.StatusFound, "/dashboard")
@@ -185,4 +294,33 @@ func createZipArchive(sourceDir, destinationPath string) error {
 	})
 
 	return err
+}
+
+// Вспомогательная функция для валидации имени тега (простая версия)
+func isValidTagName(name string) bool {
+	if name == "" {
+		return false
+	}
+	// Простая проверка: разрешаем буквы, цифры, пробелы, дефисы
+	// Запрещаем другие символы
+	for _, r := range name {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != ' ' && r != '-' {
+			return false
+		}
+	}
+	// Можно добавить более сложные проверки (не начинать/заканчивать пробелом/дефисом, не два пробела/дефиса подряд)
+	return true
+}
+
+// Вспомогательная функция для удаления дубликатов из слайса int
+func uniqueInts(intSlice []int) []int {
+	keys := make(map[int]bool)
+	list := []int{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }

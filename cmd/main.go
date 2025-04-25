@@ -51,7 +51,7 @@ func main() {
 		public.POST("/register", auth.Register)
 		public.GET("/login", auth.ShowLogin)
 		public.POST("/login", auth.Login)
-		public.GET("/products", prod.ShowProducts) // Product listing handler
+		public.GET("/products", prod.ShowProductsPage) // Новый вариант, рендерит HTML страницу
 
 		// OAuth routes
 		public.GET("/auth/github", auth.InitiateGithubLogin)
@@ -89,6 +89,15 @@ func main() {
 		// Protected routes for file access
 		authenticated.GET("/secure-download", download.HandleSecureDownload)       // Download via token
 		authenticated.GET("/files/products/:productID", download.ServeProductFile) // Direct access to product files
+	}
+
+	// API routes (JSON endpoints)
+	api := router.Group("/api")
+	{
+		// Добавляем маршруты для API продуктов и тегов
+		api.GET("/products", prod.GetProductsAPI) // Получение списка продуктов (JSON)
+		api.GET("/tags", prod.GetTags)            // Получение списка тегов (JSON)
+		// Сюда можно добавить другие API эндпоинты в будущем
 	}
 
 	// Start server

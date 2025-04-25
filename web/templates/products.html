@@ -140,6 +140,52 @@
     a:hover {
       text-decoration: underline;
     }
+
+    .filters {
+      margin-bottom: 30px;
+      padding: 15px;
+      background-color: rgba(0,0,0,0.6);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .filters h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: #FFD700;
+    }
+
+    .filter-tags label {
+      display: inline-block;
+      margin-right: 15px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      padding: 5px 10px;
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 15px;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    .filter-tags input[type="checkbox"] {
+      display: none; /* Скрываем стандартный чекбокс */
+    }
+
+    .filter-tags input[type="checkbox"]:checked + span {
+      background-color: rgba(255, 215, 0, 0.3);
+      border-color: #FFD700;
+      font-weight: bold;
+    }
+
+    .filter-tags label:hover span {
+        background-color: rgba(255, 215, 0, 0.1);
+    }
+
+    .filter-tags label span {
+        padding: 5px 10px;
+        display: inline-block;
+        border-radius: 15px;
+        transition: background-color 0.3s, border-color 0.3s;
+    }
   </style>
 </head>
 <body>
@@ -163,26 +209,47 @@
 
   <div class="content">
     <h1>Available Products</h1>
-    <!-- Product listing block goes here -->
-    {{range .AllProducts}}
-      <div class="product-card">
-        <h2>{{.Title}}</h2>
-        <p>{{.Description}}</p>
-        {{if .ImagePath}}
-          <img src="/images/products/{{.ID}}" alt="{{.Title}}" class="product-image">
-        {{else if .FilePath}}
-          <img src="/images/products/{{.ID}}" alt="{{.Title}}" class="product-image">
+
+    <!-- Filters Section -->
+    <div class="filters">
+      <h3>Filter by Tags:</h3>
+      <div class="filter-tags" id="tag-filters">
+        {{range .AllTags}}
+          <label>
+            <input type="checkbox" name="tag" value="{{.Name}}" class="tag-checkbox">
+            <span>{{.Name}}</span>
+          </label>
+        {{else}}
+          <p>No tags available for filtering.</p>
         {{end}}
-        <div class="product-actions">
-          <a href="/buy/{{.ID}}" class="buy-button">Buy Now</a>
-          <form action="/cart/add/{{.ID}}" method="POST" style="margin: 0;">
-            <button type="submit" class="cart-button">Add to Cart</button>
-          </form>
-        </div>
       </div>
-    {{else}}
-      <p>No products available.</p>
-    {{end}}
+    </div>
+
+    <!-- Product Listing Container -->
+    <div id="product-list-container">
+      <!-- Initial product list rendered by Go template -->
+      {{range .AllProducts}}
+        <div class="product-card">
+          <h2>{{.Title}}</h2>
+          <p>{{.Description}}</p>
+          {{if .ImagePath}}
+            <img src="/images/products/{{.ID}}" alt="{{.Title}}" class="product-image">
+          {{else if .FilePath}}
+            <img src="/images/products/{{.ID}}" alt="{{.Title}}" class="product-image">
+          {{end}}
+          <p><strong>Price:</strong> ${{printf "%.2f" .Price}}</p> <!-- Добавим отображение цены -->
+          <div class="product-actions">
+            <a href="/buy/{{.ID}}" class="buy-button">Buy Now</a>
+            <form action="/cart/add/{{.ID}}" method="POST" style="margin: 0;">
+              <button type="submit" class="cart-button">Add to Cart</button>
+            </form>
+          </div>
+        </div>
+      {{else}}
+        <p id="no-products-message">No products available.</p>
+      {{end}}
+    </div>
+
   </div>
 
   <script>
@@ -217,6 +284,85 @@
         video1.currentTime = 0;
         video1.play().catch(error => console.error("Video 1 Play failed:", error));
     });
+
+    // --- New Product Filtering Script ---
+    const tagCheckboxes = document.querySelectorAll('.tag-checkbox');
+    const productListContainer = document.getElementById('product-list-container');
+    const noProductsMessage = document.getElementById('no-products-message'); // Get the 'no products' message element
+
+    // Function to generate HTML for a single product
+    function createProductHTML(product) {
+        // Debugging: Log the received product object to the browser console
+        console.log("Received product data for rendering:", product);
+
+        // Determine image source based on imagePath or filePath (camelCase keys from JSON)
+        let imageHTML = '';
+        if (product.imagePath || product.filePath) { // Use camelCase keys
+            // Use lowercase 'id' and 'title' keys from JSON
+            imageHTML = `<img src="/images/products/${product.id}" alt="${product.title || ''}" class="product-image">`;
+        }
+        
+        // Format price using lowercase 'price' key from JSON
+        const priceFormatted = (typeof product.price === 'number') ? `$${product.price.toFixed(2)}` : 'N/A';
+
+        return `
+            <div class="product-card">
+                <h2>${product.title || 'No Title'}</h2> 
+                <p>${product.description || 'No Description'}</p>
+                ${imageHTML}
+                <p><strong>Price:</strong> ${priceFormatted}</p>
+                <div class="product-actions">
+                    <a href="/buy/${product.id}" class="buy-button">Buy Now</a> 
+                    <form action="/cart/add/${product.id}" method="POST" style="margin: 0;">
+                        <button type="submit" class="cart-button">Add to Cart</button>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
+    // Function to fetch and update products based on selected tags
+    async function updateProducts() {
+        const selectedTags = Array.from(tagCheckboxes)
+                                .filter(checkbox => checkbox.checked)
+                                .map(checkbox => checkbox.value);
+        
+        const tagsQueryParam = selectedTags.join(',');
+        const apiUrl = `/api/products?tags=${encodeURIComponent(tagsQueryParam)}`;
+
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const products = await response.json();
+
+            // Clear current product list
+            productListContainer.innerHTML = ''; 
+
+            if (products && products.length > 0) {
+                products.forEach(product => {
+                    productListContainer.innerHTML += createProductHTML(product);
+                });
+            } else {
+                // Display 'no products' message if the list is empty
+                productListContainer.innerHTML = '<p id="no-products-message">No products found matching the selected tags.</p>';
+            }
+
+        } catch (error) {
+            console.error('Error fetching products:', error);
+            productListContainer.innerHTML = '<p>Error loading products. Please try again later.</p>';
+        }
+    }
+
+    // Add event listeners to checkboxes
+    tagCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateProducts);
+    });
+
+    // Initial load (optional, if you want the list to be filtered on page load based on some default)
+    // updateProducts(); // Uncomment if needed, otherwise it uses the Go template's initial list
+
   </script>
 </body>
 </html>
