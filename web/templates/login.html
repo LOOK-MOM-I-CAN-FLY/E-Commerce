@@ -13,11 +13,14 @@
     body, html {
       margin: 0;
       padding: 0;
-      font-family: 'Glamick', sans-serif;
+      font-family: 'Times New Roman', serif;
       color: #FFD700;
       /* background-color: rgba(0, 0, 0, 0.5); */ /* Убрано для видимости видео */
       overflow: hidden;
       height: 100vh;
+    }
+    h2, .navbar, .register-link, .divider {
+      font-family: 'Glamick', sans-serif;
     }
     .video-bg {
       position: fixed;
@@ -57,8 +60,8 @@
       border: 1px solid #FFD700;
       border-radius: 5px;
       color: #FFD700;
-      font-family: 'Glamick', sans-serif;
-      box-sizing: border-box; /* Добавлено для правильного расчета ширины */
+      font-family: 'Times New Roman', serif;
+      box-sizing: border-box;
     }
     input[type="submit"] {
       background-color: #FFD700;
@@ -69,27 +72,30 @@
       cursor: pointer;
       font-family: 'Glamick', sans-serif;
       width: 100%;
-      font-size: 1.1rem; /* Увеличен размер шрифта кнопки */
+      font-size: 1.1rem;
+      box-sizing: border-box;
     }
-     button[type="submit"] { /* Стиль для кнопки GitHub */
-       background-color: #333; /* Темный фон */
-       color: white; /* Белый текст */
-       border: 1px solid #FFD700; /* Золотая рамка */
+     button[type="submit"] {
+       background-color: #333;
+       color: white;
+       border: 1px solid #FFD700;
        padding: 10px 15px;
        border-radius: 5px;
        cursor: pointer;
        font-family: 'Glamick', sans-serif;
        width: 100%;
        font-size: 1.1rem;
-       margin-top: 10px; /* Отступ сверху */
-       display: block; /* Убедиться, что занимает всю ширину */
+       margin-top: 10px;
+       display: block;
+       box-sizing: border-box;
      }
      button[type="submit"]:hover {
-         background-color: #555; /* Затемнение при наведении */
+         background-color: #555;
      }
     .error-message {
       color: #FF6B6B;
       margin-bottom: 15px;
+      font-family: 'Times New Roman', serif;
     }
     .navbar {
       display: flex;
@@ -143,7 +149,7 @@
          top: 50%;
          width: 40%;
          height: 1px;
-         background-color: rgba(255, 215, 0, 0.5); /* Полупрозрачный золотой */
+         background-color: rgba(255, 215, 0, 0.5);
      }
      .divider::before {
          left: 0;
@@ -186,7 +192,7 @@
       
       <form method="post" action="/login">
         <div class="form-group">
-          <input type="text" name="username" placeholder="Username or Email" required> <!-- Изменено на username -->
+          <input type="email" name="email" placeholder="Email" required>
         </div>
         <div class="form-group">
           <input type="password" name="password" placeholder="Password" required>

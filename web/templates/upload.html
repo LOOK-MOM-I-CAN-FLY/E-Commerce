@@ -140,17 +140,20 @@
     }
 
     /* --- CSS для плашек тегов --- */
-    .tag-badge {
+    .tag-badge, .existing-tag-item { /* Добавляем стиль и для существующих тегов */
       display: inline-flex;
       align-items: center;
       background-color: rgba(255, 215, 0, 0.2);
       border: 1px solid #FFD700;
       color: #FFD700;
-      padding: 3px 8px;
+      padding: 5px 10px; /* Немного увеличил padding */
       border-radius: 15px;
       font-size: 0.9em;
       margin-right: 5px;
-      margin-bottom: 5px; 
+      margin-bottom: 5px;
+      font-family: 'Glamick', sans-serif; /* Применяем шрифт Glamick */
+      cursor: pointer; /* Делаем их похожими на кнопки */
+      transition: background-color 0.2s ease; /* Плавный переход */
     }
     .tag-badge .remove-tag {
       margin-left: 8px;
@@ -164,6 +167,51 @@
     }
     .tag-badge .remove-tag:hover {
       color: red;
+    }
+    .existing-tag-item:hover {
+        background-color: rgba(255, 215, 0, 0.4); /* Подсветка при наведении */
+    }
+
+    /* --- Стили для кастомных кнопок выбора файла --- */
+    .file-input-container {
+        margin-bottom: 1rem; /* Добавляем отступ снизу */
+        position: relative; /* Для позиционирования скрытого инпута */
+    }
+
+    input[type=\"file\"] {
+        /* Скрываем стандартный инпут */
+        opacity: 0;
+        position: absolute;
+        z-index: -1;
+        width: 0.1px;
+        height: 0.1px;
+        overflow: hidden;
+    }
+
+    .file-input-button {
+        display: inline-block; /* Чтобы label вел себя как кнопка */
+        background: linear-gradient(135deg, #FFD700, #FF8C00);
+        color: black;
+        font-family: 'Glamick', sans-serif;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        margin-right: 10px; /* Отступ справа от кнопки */
+    }
+
+    .file-input-button:hover {
+        background: linear-gradient(135deg, #FF8C00, #FFD700);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+    }
+
+    .file-name-display {
+        color: #FFD700; /* Цвет текста имени файла */
+        font-family: 'Glamick', sans-serif;
+        font-size: 0.9rem;
     }
   </style>
 </head>
@@ -206,36 +254,41 @@
       
       <!-- Блок для выбора и добавления тегов -->
       <div class="tags-container" style="margin-bottom: 1rem;">
-        <label for="existing-tags" style="display: block; margin-bottom: 0.5rem;">Existing Tags (select multiple):</label>
-        <select name="existing_tags" id="existing-tags" multiple style="width: 100%; min-height: 100px; background-color: rgba(0,0,0,0.7); border: 1px solid #FFD700; color: #FFD700; border-radius: 5px; padding: 0.5rem; margin-bottom: 1rem;">
-          <!-- Опции рендерятся Go -->
+        <label style="display: block; margin-bottom: 0.5rem;">Existing Tags (click to add):</label>
+        <!-- Контейнер для отображения существующих тегов -->
+        <div id="existing-tags-display" style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 1rem; background-color: rgba(0,0,0,0.7); border: 1px solid #FFD700; border-radius: 5px; padding: 0.5rem; min-height: 50px;">
           {{range .ExistingTags}}
-            <option value="{{.ID}}">{{.Name}}</option>
+            <span class="existing-tag-item" data-tag-name="{{.Name}}">{{.Name}}</span>
           {{end}}
-        </select>
+        </div>
 
         <label for="new-tags-input" style="display: block; margin-bottom: 0.5rem;">Add New Tag (type and press Enter):</label>
         <input type="text" id="new-tags-input" placeholder="e.g., adventure">
-        <!-- Скрытое поле для отправки списка новых тегов -->
-        <input type="hidden" name="new_tags_list" id="new-tags-list">
+        <!-- Скрытое поле для отправки объединенного списка тегов (существующие + новые) -->
+        <input type="hidden" name="tags_list" id="tags-list">
         <div id="tag-validation-error" style="color: red; font-size: 0.9em; margin-top: 0.5rem; margin-bottom: 1rem; display: none;">Invalid tag format. Use letters, numbers, spaces, hyphens. Cannot start/end with space/hyphen.</div>
 
-        <!-- Контейнер для отображения добавленных тегов -->
-        <div id="new-tags-display" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px;">
-          <!-- Сюда будут добавляться плашки тегов -->
+        <!-- Контейнер для отображения добавленных тегов (общий) -->
+        <label style="display: block; margin-bottom: 0.5rem; margin-top: 1rem;">Selected Tags:</label>
+        <div id="selected-tags-display" style="display: flex; flex-wrap: wrap; gap: 5px; min-height: 30px; background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px;">
+          <!-- Сюда будут добавляться плашки выбранных тегов -->
         </div>
       </div>
       <!-- Конец блока тегов -->
 
       <div class="file-input-container">
         <label class="file-input-label">Product Image</label>
-        <input type="file" name="product_image" id="product-image" accept="image/*">
+        <label for="product-image" class="file-input-button">Choose File</label>
+        <span id="image-file-name" class="file-name-display">No file chosen</span>
+        <input type="file" name="product_image" id="product-image" accept="image/*" style="display: none;">
         <div id="image-preview" class="file-preview"></div>
       </div>
       
       <div class="file-input-container">
         <label class="file-input-label">Product Files (multiple)</label>
-        <input type="file" name="product_files" multiple id="product-files" required>
+        <label for="product-files" class="file-input-button">Choose Files</label>
+        <span id="files-file-name" class="file-name-display">No files chosen</span>
+        <input type="file" name="product_files" multiple id="product-files" required style="display: none;">
         <div id="files-preview" class="file-preview"></div>
       </div>
       
@@ -279,9 +332,11 @@
     // Предпросмотр изображения товара
     document.getElementById('product-image').addEventListener('change', function(e) {
       const preview = document.getElementById('image-preview');
+      const fileNameDisplay = document.getElementById('image-file-name');
       preview.innerHTML = '';
       
       if (this.files && this.files[0]) {
+        fileNameDisplay.textContent = this.files[0].name;
         const reader = new FileReader();
         
         reader.onload = function(e) {
@@ -296,39 +351,50 @@
         }
         
         reader.readAsDataURL(this.files[0]);
+      } else {
+        fileNameDisplay.textContent = 'No file chosen';
       }
     });
 
     // Предпросмотр файлов товара
     document.getElementById('product-files').addEventListener('change', function(e) {
       const preview = document.getElementById('files-preview');
+      const fileNameDisplay = document.getElementById('files-file-name');
       preview.innerHTML = '';
       
-      if (this.files) {
+      if (this.files && this.files.length > 0) {
+        if (this.files.length === 1) {
+            fileNameDisplay.textContent = this.files[0].name;
+        } else {
+            fileNameDisplay.textContent = `${this.files.length} files selected`;
+        }
         Array.from(this.files).forEach(file => {
           const div = document.createElement('div');
           div.className = 'preview-item';
           div.textContent = file.name;
           preview.appendChild(div);
         });
+      } else {
+        fileNameDisplay.textContent = 'No files chosen';
       }
     });
 
     // --- JS для нового интерфейса тегов ---
     const newTagInput = document.getElementById('new-tags-input');
-    const newTagsDisplay = document.getElementById('new-tags-display');
-    const newTagsListHidden = document.getElementById('new-tags-list');
+    const selectedTagsDisplay = document.getElementById('selected-tags-display'); // Общий контейнер для выбранных тегов
+    const tagsListHidden = document.getElementById('tags-list'); // Обновленное скрытое поле
     const tagValidationError = document.getElementById('tag-validation-error');
-    let addedNewTags = []; // Массив для хранения добавленных тегов
+    const existingTagsContainer = document.getElementById('existing-tags-display'); // Контейнер с существующими тегами
+    let selectedTags = []; // Массив для хранения ВСЕХ выбранных тегов (и новых, и существующих)
 
     // Паттерн валидации (тот же)
     const tagValidationPattern = /^[\p{L}\d]+(?:[\s-][\p{L}\d]+)*$/u;
 
-    function renderTags() {
-      newTagsDisplay.innerHTML = ''; // Очищаем контейнер
-      addedNewTags.forEach(tag => {
+    function renderSelectedTags() {
+      selectedTagsDisplay.innerHTML = ''; // Очищаем контейнер
+      selectedTags.forEach(tag => {
         const badge = document.createElement('span');
-        badge.className = 'tag-badge';
+        badge.className = 'tag-badge'; // Используем тот же стиль
         badge.textContent = tag;
         
         const removeBtn = document.createElement('button');
@@ -338,44 +404,58 @@
         removeBtn.onclick = () => removeTag(tag);
         
         badge.appendChild(removeBtn);
-        newTagsDisplay.appendChild(badge);
+        selectedTagsDisplay.appendChild(badge);
       });
       // Обновляем скрытое поле
-      newTagsListHidden.value = addedNewTags.join(',');
+      tagsListHidden.value = selectedTags.join(',');
+      console.log("Updated hidden tags list:", tagsListHidden.value); // Для отладки
     }
 
     function addTag(tag) {
       const trimmedTag = tag.trim();
-      // Валидация
-      if (trimmedTag === '' || !tagValidationPattern.test(trimmedTag)) {
-        tagValidationError.style.display = 'block';
-        newTagInput.style.borderColor = 'red';
-        return; // Не добавляем невалидный тег
+      // Валидация для новых тегов
+      if (trimmedTag !== '' && newTagInput.value !== '' && !tagValidationPattern.test(trimmedTag)) { // Проверяем только если ввод был из поля newTagInput
+          tagValidationError.style.display = 'block';
+          newTagInput.style.borderColor = 'red';
+          return; 
       }
       // Проверка на дубликат (регистронезависимая)
-      if (!addedNewTags.some(existingTag => existingTag.toLowerCase() === trimmedTag.toLowerCase())) {
-        addedNewTags.push(trimmedTag);
-        renderTags();
-        newTagInput.value = ''; // Очищаем поле ввода
+      if (trimmedTag !== '' && !selectedTags.some(existingTag => existingTag.toLowerCase() === trimmedTag.toLowerCase())) {
+        selectedTags.push(trimmedTag);
+        renderSelectedTags();
+        if (newTagInput.value !== '') { // Очищаем поле ввода только если добавляли из него
+            newTagInput.value = ''; 
+        }
         tagValidationError.style.display = 'none'; // Скрываем ошибку
         newTagInput.style.borderColor = '#FFD700'; // Восстанавливаем цвет рамки
-      } else {
+      } else if (trimmedTag !== '') {
         // Можно добавить сообщение, что тег уже добавлен
-        console.log(`Tag "${trimmedTag}" already added.`);
-        newTagInput.value = ''; // Все равно очищаем
+        console.log(`Tag "${trimmedTag}" already selected.`);
+        if (newTagInput.value !== '') {
+           newTagInput.value = ''; // Все равно очищаем
+        }
       }
     }
 
     function removeTag(tagToRemove) {
-      addedNewTags = addedNewTags.filter(tag => tag.toLowerCase() !== tagToRemove.toLowerCase());
-      renderTags();
+      selectedTags = selectedTags.filter(tag => tag.toLowerCase() !== tagToRemove.toLowerCase());
+      renderSelectedTags();
     }
 
+    // Обработчик для добавления НОВОГО тега по Enter
     newTagInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault(); // Предотвращаем отправку формы
         addTag(newTagInput.value);
       }
+    });
+
+    // Обработчик для добавления СУЩЕСТВУЮЩЕГО тега по клику
+    existingTagsContainer.addEventListener('click', (event) => {
+        if (event.target.classList.contains('existing-tag-item')) {
+            const tagName = event.target.dataset.tagName;
+            addTag(tagName); // Используем ту же функцию добавления
+        }
     });
 
     // Очищаем ошибку при начале ввода нового тега

@@ -173,6 +173,7 @@ a:hover {
 .form-group input[type="password"],
 .form-group input[type="file"],
 .form-group textarea {
+  display: block;
   width: 100%;
   padding: 10px;
   background-color: var(--input-bg);
@@ -500,15 +501,16 @@ a:hover {
 .form-group input[type="password"],
 .form-group input[type="file"],
 .form-group textarea {
+  display: block;
   width: 100%;
   padding: 10px;
   background-color: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--border-radius);
-  box-sizing: border-box; /* Важно для правильной ширины */
+  box-sizing: border-box;
   transition: border-color var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
   color: var(--input-text);
-  font-family: var(--font-main); /* Применяем шрифт к полям ввода */
+  font-family: var(--font-main);
 }
 
 /* Убираем автозаполнение стилей браузера */

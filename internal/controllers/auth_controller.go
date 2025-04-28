@@ -7,12 +7,26 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// Старые регулярные выражения (можно удалить, так как они теперь в ValidationService)
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
+// Функции проверки (можно удалить, так как они теперь в ValidationService)
+func isValidEmail(email string) bool {
+	return emailRegex.MatchString(email)
+}
+
+func isValidUsername(username string) bool {
+	return usernameRegex.MatchString(username) && len(username) >= 3 && len(username) <= 30
+}
 
 // Moved from base_controller.go
 // renderTemplate is a helper function to render HTML templates
@@ -131,12 +145,14 @@ func SetLoginStatus() gin.HandlerFunc {
 }
 
 type AuthController struct {
-	oauthService *services.OAuthService
+	oauthService      *services.OAuthService
+	validationService *services.ValidationService
 }
 
 func NewAuthController() *AuthController {
 	return &AuthController{
-		oauthService: services.NewOAuthService(),
+		oauthService:      services.NewOAuthService(),
+		validationService: services.NewValidationService(),
 	}
 }
 
@@ -162,17 +178,54 @@ func (ac *AuthController) ShowRegister(c *gin.Context) {
 }
 
 func (ac *AuthController) Register(c *gin.Context) {
-	// Existing registration logic...
 	email := c.PostForm("email")
 	password := c.PostForm("password")
-	username := c.PostForm("username") // Получаем имя пользователя из формы
+	username := c.PostForm("username")
+
+	// Валидация email с использованием ValidationService
+	if valid, errMsg := ac.validationService.ValidateEmail(email); !valid {
+		renderTemplate(c, "register.html", gin.H{
+			"Error":    errMsg,
+			"Username": username, // Возвращаем введенное имя пользователя для удобства
+		})
+		return
+	}
+
+	// Валидация имени пользователя с использованием ValidationService
+	if valid, errMsg := ac.validationService.ValidateUsername(username); !valid {
+		renderTemplate(c, "register.html", gin.H{
+			"Error": errMsg,
+			"Email": email, // Возвращаем введенный email для удобства
+		})
+		return
+	}
+
+	// Валидация пароля с использованием ValidationService
+	if valid, errMsg := ac.validationService.ValidatePassword(password); !valid {
+		renderTemplate(c, "register.html", gin.H{
+			"Error":    errMsg,
+			"Email":    email,
+			"Username": username,
+		})
+		return
+	}
 
 	// Add validation (e.g., check if email exists)
 	var existingUser models.User
 	if database.DB.Where("email = ?", email).First(&existingUser).Error == nil {
 		// User already exists
 		renderTemplate(c, "register.html", gin.H{
-			"Error": "Пользователь с таким email уже существует",
+			"Error":    "Пользователь с таким email уже существует",
+			"Username": username,
+		})
+		return
+	}
+
+	// Проверка, не занято ли уже имя пользователя
+	if database.DB.Where("username = ?", username).First(&existingUser).Error == nil {
+		renderTemplate(c, "register.html", gin.H{
+			"Error": "Это имя пользователя уже занято",
+			"Email": email,
 		})
 		return
 	}
@@ -190,7 +243,9 @@ func (ac *AuthController) Register(c *gin.Context) {
 	if result.Error != nil {
 		// Use renderTemplate to show error on the same page
 		renderTemplate(c, "register.html", gin.H{
-			"Error": "Ошибка регистрации. Попробуйте снова.",
+			"Error":    "Ошибка регистрации. Попробуйте снова.",
+			"Email":    email,
+			"Username": username,
 		})
 		return
 	}
@@ -215,13 +270,21 @@ func (ac *AuthController) ShowLogin(c *gin.Context) {
 }
 
 func (ac *AuthController) Login(c *gin.Context) {
-	// Existing login logic...
 	email := c.PostForm("email")
 	password := c.PostForm("password")
+
+	// Валидация email с использованием ValidationService
+	if valid, errMsg := ac.validationService.ValidateEmail(email); !valid {
+		renderTemplate(c, "login.html", gin.H{
+			"Error": errMsg,
+		})
+		return
+	}
 
 	var user models.User
 	result := database.DB.Where("email = ?", email).First(&user)
 	if result.Error != nil {
+		log.Printf("%s: %v", c.Request.URL.Path, result.Error)
 		// Use renderTemplate to show error
 		renderTemplate(c, "login.html", gin.H{
 			"Error": "Неверные учетные данные",

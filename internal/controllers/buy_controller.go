@@ -8,27 +8,75 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gopkg.in/gomail.v2"
 )
 
-type BuyController struct{}
+type BuyController struct {
+	validationService *services.ValidationService
+}
 
 func NewBuyController() *BuyController {
-	return &BuyController{}
+	return &BuyController{
+		validationService: services.NewValidationService(),
+	}
+}
+
+// Функция валидации ID продукта можно удалить, т.к. она перенесена в ValidationService
+func validateProductID(idStr string) (uint, error) {
+	// Удаляем пробелы и проверяем на пустоту
+	idStr = strings.TrimSpace(idStr)
+	if idStr == "" {
+		return 0, fmt.Errorf("ID продукта не указан")
+	}
+
+	// Преобразуем строку в число
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("Неверный формат ID продукта")
+	}
+
+	// Проверяем на допустимый диапазон
+	if id == 0 || id > 1000000 { // Выберите подходящий верхний порог
+		return 0, fmt.Errorf("ID продукта вне допустимого диапазона")
+	}
+
+	return uint(id), nil
 }
 
 // ShowBuyPage displays the confirmation page for buying a specific product
 func (bc *BuyController) ShowBuyPage(c *gin.Context) {
-	productID := c.Param("productID") // Get product ID from URL parameter
+	productIDStr := c.Param("productID") // Get product ID from URL parameter
+
+	// Базовая валидация - конвертация строки в uint
+	productID, err := strconv.ParseUint(productIDStr, 10, 64)
+	if err != nil {
+		renderTemplate(c, "error.html", gin.H{"Error": "Некорректный ID продукта"})
+		return
+	}
+
+	// Дополнительная валидация с использованием ValidationService
+	validID, errMsg := bc.validationService.ValidateProductID(uint(productID))
+	if !validID {
+		renderTemplate(c, "error.html", gin.H{"Error": errMsg})
+		return
+	}
 
 	var product models.Product
 	// Use Preload to fetch user info if needed in the template later
 	result := database.DB.First(&product, productID)
 	if result.Error != nil {
 		renderTemplate(c, "error.html", gin.H{"Error": "Товар не найден"})
+		return
+	}
+
+	// Проверка, что товар не принадлежит текущему пользователю
+	user, userExists := getUserFromContext(c)
+	if userExists && user.ID == product.UserID {
+		renderTemplate(c, "error.html", gin.H{"Error": "Вы не можете купить свой собственный товар"})
 		return
 	}
 
@@ -40,9 +88,18 @@ func (bc *BuyController) ShowBuyPage(c *gin.Context) {
 // HandleBuy processes the purchase request, creates an order, and sends confirmation
 func (bc *BuyController) HandleBuy(c *gin.Context) {
 	productIDStr := c.Param("productID") // Get product ID from URL parameter
+
+	// Базовая валидация - конвертация строки в uint
 	productID, err := strconv.ParseUint(productIDStr, 10, 64)
 	if err != nil {
-		renderTemplate(c, "error.html", gin.H{"Error": "Неверный ID товара"})
+		renderTemplate(c, "error.html", gin.H{"Error": "Некорректный ID продукта"})
+		return
+	}
+
+	// Дополнительная валидация с использованием ValidationService
+	validID, errMsg := bc.validationService.ValidateProductID(uint(productID))
+	if !validID {
+		renderTemplate(c, "error.html", gin.H{"Error": errMsg})
 		return
 	}
 
@@ -55,8 +112,26 @@ func (bc *BuyController) HandleBuy(c *gin.Context) {
 
 	var product models.Product
 	// Fetch the product again to ensure it exists
-	if err := database.DB.First(&product, uint(productID)).Error; err != nil {
+	if err := database.DB.First(&product, productID).Error; err != nil {
 		renderTemplate(c, "error.html", gin.H{"Error": "Товар не найден"})
+		return
+	}
+
+	// Проверка, что товар не принадлежит текущему пользователю
+	if user.ID == product.UserID {
+		renderTemplate(c, "error.html", gin.H{"Error": "Вы не можете купить свой собственный товар"})
+		return
+	}
+
+	// Проверка, не куплен ли товар уже ранее
+	var existingOrder models.OrderItem
+	alreadyPurchased := database.DB.
+		Joins("JOIN orders ON orders.id = order_items.order_id").
+		Where("order_items.product_id = ? AND orders.user_id = ?", productID, user.ID).
+		First(&existingOrder).Error == nil
+
+	if alreadyPurchased {
+		renderTemplate(c, "error.html", gin.H{"Error": "Вы уже приобрели этот товар ранее"})
 		return
 	}
 
@@ -107,8 +182,12 @@ func (bc *BuyController) HandleBuy(c *gin.Context) {
 	fmt.Println("Transaction committed successfully!")
 
 	// 4. Send confirmation email (using the copied function)
-	// Pass only the file path for the purchased product
-	go sendOrderConfirmationEmail(user.Email, order.ID) // Adjusted call signature
+	// Валидация email перед отправкой
+	if valid, _ := bc.validationService.ValidateEmail(user.Email); valid {
+		go sendOrderConfirmationEmail(user.Email, order.ID)
+	} else {
+		fmt.Printf("Предупреждение: некорректный email пользователя %d: %s\n", user.ID, user.Email)
+	}
 
 	// 5. Redirect to a generic success page
 	c.Redirect(http.StatusFound, "/order/success/")

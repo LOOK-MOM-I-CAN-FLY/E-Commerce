@@ -3,16 +3,43 @@ package controllers
 import (
 	"digital-marketplace/internal/database"
 	"digital-marketplace/internal/models"
+	"digital-marketplace/internal/services"
+	"html"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-type ProductController struct{}
+// Регулярное выражение для проверки параметров можно удалить, т.к. оно перенесено в ValidationService
+var alphanumericRegex = regexp.MustCompile(`^[a-zA-Z0-9_\- ]+$`)
+
+type ProductController struct {
+	validationService *services.ValidationService
+}
 
 func NewProductController() *ProductController {
-	return &ProductController{}
+	return &ProductController{
+		validationService: services.NewValidationService(),
+	}
+}
+
+// Проверка безопасности строки запроса (можно удалить, т.к. перенесено в ValidationService)
+func sanitizeQueryParam(param string) string {
+	// Обрезаем пробелы
+	trimmed := strings.TrimSpace(param)
+
+	// Ограничиваем длину
+	if len(trimmed) > 100 {
+		trimmed = trimmed[:100]
+	}
+
+	// Экранируем спецсимволы HTML
+	sanitized := html.EscapeString(trimmed)
+
+	return sanitized
 }
 
 // GetTags godoc
@@ -46,7 +73,16 @@ func (pc *ProductController) GetTags(c *gin.Context) {
 // @Router /api/products [get]
 func (pc *ProductController) GetProductsAPI(c *gin.Context) {
 	var products []models.Product
-	tagsQuery := c.Query("tags") // Получаем строку ?tags=tag1,tag2
+	tagsParam := c.Query("tags")
+
+	// Используем ValidationService для очистки и валидации параметра
+	tagsQuery := pc.validationService.SanitizeQueryParam(tagsParam)
+	isValid, _ := pc.validationService.ValidateQueryParam(tagsQuery)
+
+	if !isValid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Недопустимый формат параметра tags"})
+		return
+	}
 
 	if tagsQuery == "" {
 		// Если теги не указаны, просто получаем все продукты
@@ -64,8 +100,25 @@ func (pc *ProductController) GetProductsAPI(c *gin.Context) {
 			return
 		}
 
-		// Используем Raw SQL для сложного запроса с JOIN и HAVING COUNT
-		// GORM не очень удобен для таких конструкций
+		// Валидация тегов
+		var validTagNames []string
+		for _, tag := range tagNames {
+			tag = strings.TrimSpace(tag)
+
+			// Используем ValidationService для валидации тега
+			isValid, _ := pc.validationService.ValidateTagName(tag)
+			if isValid {
+				validTagNames = append(validTagNames, tag)
+			}
+		}
+
+		// Если все теги невалидны, возвращаем пустой список
+		if len(validTagNames) == 0 {
+			c.JSON(http.StatusOK, []models.Product{})
+			return
+		}
+
+		// Используем параметризованный запрос для безопасности
 		query := `
 			SELECT p.*
 			FROM products p
@@ -75,7 +128,7 @@ func (pc *ProductController) GetProductsAPI(c *gin.Context) {
 			GROUP BY p.id
 			HAVING COUNT(DISTINCT t.id) = ?`
 
-		result := database.DB.Raw(query, tagNames, len(tagNames)).Scan(&products)
+		result := database.DB.Raw(query, validTagNames, len(validTagNames)).Scan(&products)
 
 		if result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch filtered products"})
@@ -85,6 +138,53 @@ func (pc *ProductController) GetProductsAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, products)
+}
+
+// ShowProductDetail отображает детальную информацию о продукте по его ID
+func (pc *ProductController) ShowProductDetail(c *gin.Context) {
+	// Получаем ID продукта из параметров URL
+	productIDStr := c.Param("id")
+
+	// Валидация ID
+	productID, err := strconv.ParseUint(productIDStr, 10, 64)
+	if err != nil {
+		renderTemplate(c, "error.html", gin.H{
+			"Error": "Неверный ID продукта",
+		})
+		return
+	}
+
+	// Проверка ID через ValidationService
+	validID, errMsg := pc.validationService.ValidateProductID(uint(productID))
+	if !validID {
+		renderTemplate(c, "error.html", gin.H{
+			"Error": errMsg,
+		})
+		return
+	}
+
+	// Получаем информацию о продукте
+	var product models.Product
+	if err := database.DB.First(&product, productID).Error; err != nil {
+		renderTemplate(c, "error.html", gin.H{
+			"Error": "Продукт не найден",
+		})
+		return
+	}
+
+	// Получаем теги продукта
+	var tags []models.Tag
+	if err := database.DB.Joins("JOIN product_tags pt ON pt.tag_id = tags.id").
+		Where("pt.product_id = ?", productID).
+		Find(&tags).Error; err != nil {
+		// Ошибка получения тегов не критична, просто показываем продукт без тегов
+		tags = []models.Tag{}
+	}
+
+	renderTemplate(c, "product_detail.html", gin.H{
+		"Product": product,
+		"Tags":    tags,
+	})
 }
 
 // ShowProducts displays the page with all products
@@ -106,8 +206,7 @@ func (pc *ProductController) ShowProducts(c *gin.Context) {
 	})
 }
 
-// ShowProductsPage рендерит HTML страницу со всеми продуктами (без фильтрации по тегам здесь)
-// Фильтрация будет происходить на фронтенде с помощью запроса к /api/products
+// ShowProductsPage рендерит HTML страницу со всеми продуктами
 func (pc *ProductController) ShowProductsPage(c *gin.Context) {
 	// Возможно, здесь не нужно загружать все продукты, если фронтенд все равно их запросит через API?
 	// Оставим пока для примера, но для SPA это может быть избыточно.
