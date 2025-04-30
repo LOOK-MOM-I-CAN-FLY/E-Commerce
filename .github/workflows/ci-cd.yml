@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:                     # метаданные образа
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/app
-
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
@@ -16,8 +13,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
+    # ---------- NEW: нормализуем имя образа ----------
+    - name: Set image name (lower-case)
+      id: vars
+      run: |
+        IMAGE_NAME=$(echo "ghcr.io/${{ github.repository }}/app" | tr '[:upper:]' '[:lower:]')
+        echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
+        echo "Image will be pushed as $IMAGE_NAME"
+    # теперь ${{ env.IMAGE_NAME }} доступна всем последующим шагам
+
+    # ---------- Go тесты ----------
+    - uses: actions/setup-go@v5
       with:
         go-version: "1.23"
 
@@ -28,12 +34,11 @@ jobs:
           ~/go/pkg/mod
           ~/.cache/go-build
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-go-
 
     - name: Run unit tests
       run: go test ./...
 
-    # ---------- Docker -------------
+    # ---------- Docker build & push ----------
     - uses: docker/setup-buildx-action@v3
 
     - name: Login to GHCR
@@ -53,16 +58,18 @@ jobs:
           ${{ env.IMAGE_NAME }}:${{ github.sha }}
           ${{ env.IMAGE_NAME }}:latest
 
-    # ---------- (опционально) деплой на VPS через SSH -------------
+    # ---------- (опционально) deploy ----------
     - name: Deploy to VPS
-      if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' && env.VPS_HOST != ''
       uses: appleboy/ssh-action@v1
+      env:
+        VPS_HOST: ${{ secrets.VPS_HOST }}            # пусто? шаг пропустится
       with:
-        host: ${{ secrets.VPS_HOST }}
+        host: ${{ env.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
-          docker login ghcr.io -u ${{ secrets.GHCR_USER }} -p ${{ secrets.GHCR_PAT }}
+          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           cd /opt/digital-marketplace
           docker compose pull
           docker compose up -d --remove-orphans
