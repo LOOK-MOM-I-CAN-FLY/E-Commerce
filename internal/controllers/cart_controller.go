@@ -100,9 +100,21 @@ func (cc *CartController) ShowCart(c *gin.Context) {
 		return
 	}
 
+	// Рассчитываем общую стоимость товаров
+	var totalPrice float64 = 0
+	for _, item := range cartItems {
+		totalPrice += item.Product.Price
+	}
+
+	// Проверяем наличие сообщения об ошибке, связанной с недостаточностью средств
+	cartError, _ := c.Get("cart_error")
+
 	// 3. Render the cart template with the fetched items
 	renderTemplate(c, "cart.html", gin.H{
-		"Items": cartItems,
+		"Items":      cartItems,
+		"TotalPrice": totalPrice,
+		"Balance":    user.Balance,
+		"cart_error": cartError,
 	})
 }
 

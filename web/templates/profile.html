@@ -177,6 +177,20 @@
       <div class="profile-info">
         <p><strong>Username:</strong> {{if .Username}}{{.Username}}{{else}}Not set{{end}}</p>
         <p><strong>Email:</strong> {{.Email}}</p>
+        <p><strong>Balance:</strong> {{.Balance}} credits</p>
+        
+        <!-- Кнопка для заработка денег -->
+        <form action="/earn-money" method="post" style="margin-top: 15px;">
+          <button type="submit" style="padding: 8px 16px; background-color: #FFD700; color: black; border: none; border-radius: 5px; cursor: pointer;">
+            Earn 10 credits
+          </button>
+        </form>
+        
+        {{if .EarnSuccess}}
+          <div style="margin-top: 10px; padding: 8px; background-color: rgba(0, 255, 0, 0.2); border-radius: 5px; color: #98FB98;">
+            {{.EarnSuccess}}
+          </div>
+        {{end}}
       </div>
     </div>
 

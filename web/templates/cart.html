@@ -147,6 +147,13 @@
 
   <div class="content">
     <h1>Your Cart</h1>
+    
+    {{if .cart_error}}
+      <div style="background-color: rgba(255,0,0,0.3); padding: 10px; border-radius: 5px; margin: 15px 0;">
+        {{.cart_error}}
+      </div>
+    {{end}}
+    
     {{range .Items}}
       <div class="product-item">
         <h2>{{.Product.Title}}</h2>
@@ -162,6 +169,15 @@
     {{end}}
 
     {{if .Items}}
+      <div style="margin: 20px 0; padding: 15px; background-color: rgba(0,0,0,0.5); border-radius: 10px;">
+        <p><strong>Total Cost:</strong> {{.TotalPrice}} credits</p>
+        <p><strong>Your Balance:</strong> {{.Balance}} credits</p>
+        {{if ge .Balance .TotalPrice}}
+          <p style="color: #90EE90;">You have enough credits to make this purchase!</p>
+        {{else}}
+          <p style="color: #FF6347;">You need {{subtract .TotalPrice .Balance}} more credits to complete this purchase.</p>
+        {{end}}
+      </div>
       <form action="/checkout" method="POST" style="margin-top: 20px;">
         <button type="submit">Checkout</button>
       </form>

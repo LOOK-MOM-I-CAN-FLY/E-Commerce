@@ -5,6 +5,7 @@ import (
 	"digital-marketplace/internal/database"
 	"log"
 	"os"
+	"text/template"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -23,7 +24,12 @@ func main() {
 	// Initialize the database
 	database.InitDB()
 
-	// Load HTML templates
+	// Load HTML templates with дополнительными функциями
+	router.SetFuncMap(template.FuncMap{
+		"subtract": func(a, b float64) float64 {
+			return a - b
+		},
+	})
 	router.LoadHTMLGlob("web/templates/*")
 
 	// Serve static files
@@ -31,6 +37,11 @@ func main() {
 
 	// Do NOT serve /uploads directly, use new protected routes instead
 	// router.Static("/uploads", "./uploads") // Commented out for security
+
+	// Добавляем эндпоинт для проверки работоспособности (health check)
+	router.GET("/health", func(c *gin.Context) {
+		c.String(200, "OK")
+	})
 
 	// Initialize controllers
 	auth := controllers.NewAuthController()
@@ -74,6 +85,7 @@ func main() {
 		authenticated.POST("/buy/:productID", buy.HandleBuy)
 		authenticated.GET("/profile", auth.ShowProfile)                     // Profile page
 		authenticated.POST("/profile/change-password", auth.ChangePassword) // Change password handler
+		authenticated.POST("/earn-money", auth.EarnMoney)                   // Маршрут для заработка денег
 
 		// Cart routes
 		authenticated.GET("/cart", cart.ShowCart)                       // Show cart

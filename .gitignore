@@ -1,13 +1,40 @@
+# --- Бинарные артефакты Go ---
 *.exe
 *.a
 *.o
-*.env
+main          # если это собранный бинарь
+marketplace   # второй бинарь
+
+# --- Архивы ---
 *.zip
 *.rar
-*.png
-*.conf
-uploads/*.zip
-uploads/*.png
-# Большие бинарные файлы
-main
-marketplace
+
+# --- Логи и временные файлы ---
+*.log
+npm-debug.log*
+*.tmp
+*.swp
+*~
+
+# --- Файлы окружения ---
+.env*         # прячет .env и .env.local и т.п.
+!.env.example # но шаблон коммитим
+
+# --- Аплоады и бэкапы ---
+uploads/
+backups/
+
+# --- Docker / Compose ---
+docker-compose.override.yml
+# оставьте prod-файл, если он нужен в репозитории
+# docker-compose.prod.yml
+
+# --- Nginx и прочие сервис-директории ---
+nginx/ssl/
+nginx/logs/
+logs/
+
+# --- Система / IDE ---
+.DS_Store
+.vscode/
+.idea/

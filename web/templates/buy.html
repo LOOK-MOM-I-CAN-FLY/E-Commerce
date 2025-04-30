@@ -109,7 +109,17 @@
     {{if .Product.FilePath}}
       <img src="/images/products/{{.Product.ID}}" alt="{{.Product.Title}}" style="max-width: 300px; max-height: 300px; object-fit: cover; border-radius: 5px; margin: 20px 0;">
     {{end}}
-
+    
+    <div style="margin: 20px 0; padding: 15px; background-color: rgba(0,0,0,0.5); border-radius: 10px;">
+      <p><strong>Price:</strong> {{.Product.Price}} credits</p>
+      <p><strong>Your Balance:</strong> {{.Balance}} credits</p>
+      
+      {{if ge .Balance .Product.Price}}
+        <p style="color: #90EE90;">You have enough credits to make this purchase!</p>
+      {{else}}
+        <p style="color: #FF6347;">You need {{subtract .Product.Price .Balance}} more credits to complete this purchase.</p>
+      {{end}}
+    </div>
     
     {{if .Error}}
       <div style="background-color: rgba(255,0,0,0.3); padding: 10px; border-radius: 5px; margin: 15px 0;">

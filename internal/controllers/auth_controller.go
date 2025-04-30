@@ -313,38 +313,30 @@ func (ac *AuthController) Logout(c *gin.Context) {
 
 // ShowProfile renders the profile page
 func (ac *AuthController) ShowProfile(c *gin.Context) {
-	// User should be set in context by AuthRequired middleware
 	user, exists := getUserFromContext(c)
 	if !exists {
 		c.Redirect(http.StatusFound, "/login")
 		return
 	}
 
-	// Получаем товары, добавленные пользователем
+	// Загружаем все товары, созданные пользователем
 	var products []models.Product
 	database.DB.Where("user_id = ?", user.ID).Find(&products)
 
-	// Получаем историю заказов пользователя
+	// Загружаем все заказы пользователя с присоединёнными товарами
 	var orders []models.Order
-	database.DB.Preload("Items.Product"). // Загружаем OrderItems и связанные Products
-						Where("user_id = ?", user.ID).
-						Order("created_at desc"). // Сортируем по дате, новые сначала
-						Find(&orders)
+	database.DB.Preload("Items").Preload("Items.Product").Where("user_id = ?", user.ID).Find(&orders)
 
-	// Добавляем логирование для проверки заказов
-	log.Printf("User %d orders fetched: %+v\n", user.ID, orders)
-	for _, order := range orders {
-		log.Printf("  Order ID: %d, Items: %+v\n", order.ID, order.Items)
-		for _, item := range order.Items {
-			log.Printf("    Item ID: %d, Product: %+v\n", item.ID, item.Product)
-		}
-	}
+	// Проверяем наличие сообщения об успешном заработке денег
+	earnSuccess, _ := c.Get("earn_success")
 
 	renderTemplate(c, "profile.html", gin.H{
-		"Email":    user.Email,
-		"Username": user.Username,
-		"Products": products,
-		"Orders":   orders, // Передаем заказы в шаблон
+		"Username":    user.Username,
+		"Email":       user.Email,
+		"Balance":     user.Balance,
+		"Products":    products,
+		"Orders":      orders,
+		"EarnSuccess": earnSuccess,
 	})
 }
 
@@ -447,5 +439,31 @@ func (ac *AuthController) HandleGithubCallback(c *gin.Context) {
 
 	// Устанавливаем cookie с ID пользователя
 	c.SetCookie("user_id", fmt.Sprintf("%d", user.ID), 3600*24*7, "/", "", false, true)
+	c.Redirect(http.StatusFound, "/profile")
+}
+
+// EarnMoney позволяет пользователю заработать деньги
+func (ac *AuthController) EarnMoney(c *gin.Context) {
+	user, exists := getUserFromContext(c)
+	if !exists {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+
+	// Прибавляем 10 к балансу пользователя
+	user.Balance += 10.0
+
+	// Сохраняем обновленный баланс в базе данных
+	if err := database.DB.Save(&user).Error; err != nil {
+		// Если произошла ошибка, выводим ее в логи и перенаправляем на страницу профиля
+		fmt.Printf("Ошибка при обновлении баланса пользователя %d: %v\n", user.ID, err)
+		c.Redirect(http.StatusFound, "/profile")
+		return
+	}
+
+	// Устанавливаем сообщение об успешном заработке
+	c.Set("earn_success", "Вы успешно заработали 10 кредитов!")
+
+	// Перенаправляем обратно на страницу профиля
 	c.Redirect(http.StatusFound, "/profile")
 }

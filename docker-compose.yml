@@ -4,60 +4,110 @@ services:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: marketplace
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-marketplace}
     ports:
-      - "5433:5432"
+      - "${DB_PORT_EXTERNAL:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./backups:/backups  # Директория для резервных копий
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - marketplace-network
 
   app:
-    build: .
+    image: ${APP_IMAGE:-marketplace:latest}
+    build: 
+      context: .
+      dockerfile: Dockerfile
     restart: always
     depends_on:
       db:
         condition: service_healthy
     environment:
       # База данных
-      DB_HOST: localhost
+      DB_HOST: db
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: marketplace
-      # SMTP - используем Yandex SMTP из .env
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-marketplace}
+      # SMTP - используем переменные из .env
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
       # URL приложения для внешних ссылок
-      BASE_URL: http://localhost
+      BASE_URL: ${BASE_URL:-http://localhost}
       # GitHub OAuth если используется
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-Ov23liXws0TwiB0tLXjk}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-417af136ec8e158c036d1c4b0d5c65a4bb5aa7c8}
-      OAUTH_REDIRECT_BASE: http://localhost
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      OAUTH_REDIRECT_BASE: ${BASE_URL:-http://localhost}
     volumes:
-      - ./uploads:/app/uploads
-      - ./web:/app/web
+      - uploads_data:/app/uploads  # Используем именованный том для надежного хранения
+      - ./web:/app/web:ro  # Монтируем только для чтения
+    networks:
+      - marketplace-network
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   nginx:
     image: nginx:latest
     restart: always
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     ports:
-      - "80:80" # Публичный порт для доступа к приложению
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./uploads:/app/uploads:ro # Монтируем uploads только для чтения
+      - ./nginx/marketplace.conf:/etc/nginx/conf.d/default.conf:ro
+      - uploads_data:/app/uploads:ro # Используем тот же именованный том только для чтения
       - ./web:/app/web:ro # Монтируем web только для чтения
+      - ./nginx/ssl:/etc/nginx/ssl:ro # Для SSL сертификатов
+      - ./nginx/logs:/var/log/nginx # Для логов
+    networks:
+      - marketplace-network
+    healthcheck:
+      test: ["CMD", "service", "nginx", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backup:
+    image: postgres:15
+    restart: always
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+      PGDATABASE: ${DB_NAME:-marketplace}
+    volumes:
+      - ./backups:/backups
+      - ./scripts:/scripts
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["bash", "/scripts/backup.sh"]
+
+networks:
+  marketplace-network:
+    driver: bridge
 
 volumes:
   pgdata:
     name: marketplace_pgdata
+  uploads_data:
+    name: marketplace_uploads

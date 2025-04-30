@@ -82,6 +82,7 @@ func (bc *BuyController) ShowBuyPage(c *gin.Context) {
 
 	renderTemplate(c, "buy.html", gin.H{
 		"Product": product,
+		"Balance": user.Balance,
 	})
 }
 
@@ -135,6 +136,15 @@ func (bc *BuyController) HandleBuy(c *gin.Context) {
 		return
 	}
 
+	// Проверка наличия средств у пользователя
+	if user.Balance < product.Price {
+		renderTemplate(c, "buy.html", gin.H{
+			"Product": product,
+			"Error":   "Недостаточно средств на балансе. Пожалуйста, заработайте больше кредитов.",
+		})
+		return
+	}
+
 	// --- Create Order and OrderItem in Transaction ---
 	tx := database.DB.Begin()
 
@@ -168,7 +178,19 @@ func (bc *BuyController) HandleBuy(c *gin.Context) {
 		return
 	}
 
-	// 3. Commit Transaction
+	// 3. Уменьшаем баланс пользователя
+	user.Balance -= product.Price
+	if err := tx.Save(&user).Error; err != nil {
+		tx.Rollback()
+		fmt.Printf("Error updating user balance for user %d: %v\n", user.ID, err)
+		renderTemplate(c, "buy.html", gin.H{
+			"Product": product,
+			"Error":   "Ошибка при обновлении баланса. Попробуйте снова.",
+		})
+		return
+	}
+
+	// 4. Commit Transaction
 	fmt.Println("Attempting to commit transaction for single product purchase...")
 	if err := tx.Commit().Error; err != nil {
 		fmt.Println("Error committing transaction:", err)
@@ -181,7 +203,7 @@ func (bc *BuyController) HandleBuy(c *gin.Context) {
 	}
 	fmt.Println("Transaction committed successfully!")
 
-	// 4. Send confirmation email (using the copied function)
+	// 5. Send confirmation email (using the copied function)
 	// Валидация email перед отправкой
 	if valid, _ := bc.validationService.ValidateEmail(user.Email); valid {
 		go sendOrderConfirmationEmail(user.Email, order.ID)
@@ -189,7 +211,7 @@ func (bc *BuyController) HandleBuy(c *gin.Context) {
 		fmt.Printf("Предупреждение: некорректный email пользователя %d: %s\n", user.ID, user.Email)
 	}
 
-	// 5. Redirect to a generic success page
+	// 6. Redirect to a generic success page
 	c.Redirect(http.StatusFound, "/order/success/")
 }
 

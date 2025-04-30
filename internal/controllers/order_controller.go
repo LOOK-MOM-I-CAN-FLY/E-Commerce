@@ -34,7 +34,21 @@ func (oc *OrderController) Checkout(c *gin.Context) {
 		return
 	}
 
-	// 3. Create Order and OrderItems within a transaction
+	// 3. Рассчитываем общую стоимость товаров в корзине
+	var totalPrice float64 = 0
+	for _, item := range cartItems {
+		totalPrice += item.Product.Price
+	}
+
+	// 4. Проверяем, достаточно ли средств у пользователя
+	if user.Balance < totalPrice {
+		// Если средств недостаточно, перенаправляем обратно на страницу корзины с ошибкой
+		c.Set("cart_error", "Недостаточно средств на балансе. Пожалуйста, заработайте больше кредитов.")
+		c.Redirect(http.StatusFound, "/cart")
+		return
+	}
+
+	// 5. Create Order and OrderItems within a transaction
 	tx := database.DB.Begin() // Start transaction
 
 	order := models.Order{
@@ -66,7 +80,16 @@ func (oc *OrderController) Checkout(c *gin.Context) {
 		return
 	}
 
-	// 4. Clear the user's cart
+	// 6. Вычитаем стоимость покупки из баланса пользователя
+	user.Balance -= totalPrice
+	if err := tx.Save(&user).Error; err != nil {
+		tx.Rollback()
+		fmt.Println("Error updating user balance:", err)
+		c.Redirect(http.StatusFound, "/cart")
+		return
+	}
+
+	// 7. Clear the user's cart
 	if err := tx.Where("user_id = ?", user.ID).Delete(&models.CartItem{}).Error; err != nil {
 		tx.Rollback()
 		fmt.Println("Error clearing cart:", err)
@@ -74,7 +97,7 @@ func (oc *OrderController) Checkout(c *gin.Context) {
 		return
 	}
 
-	// 5. Commit transaction
+	// 8. Commit transaction
 	fmt.Println("Attempting to commit transaction for order creation...") // Лог перед коммитом
 	if err := tx.Commit().Error; err != nil {
 		// Важно логировать ошибку коммита!
@@ -85,10 +108,10 @@ func (oc *OrderController) Checkout(c *gin.Context) {
 	}
 	fmt.Println("Transaction committed successfully!") // Лог после успешного коммита
 
-	// 6. Send confirmation email (Now calls the function defined in buy_controller.go indirectly via package scope or needs refactoring)
+	// 9. Send confirmation email (Now calls the function defined in buy_controller.go indirectly via package scope or needs refactoring)
 	go sendOrderConfirmationEmail(user.Email, order.ID)
 
-	// 7. Redirect to a success page (or dashboard)
+	// 10. Redirect to a success page (or dashboard)
 	// TODO: Create an order confirmation page
 	c.Redirect(http.StatusFound, "/order/success/") // Redirect to a success page
 }
