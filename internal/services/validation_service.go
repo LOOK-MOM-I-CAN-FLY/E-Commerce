@@ -2,7 +2,9 @@ package services
 
 import (
 	"fmt"
+	"io"
 	"mime/multipart"
+	"net/http"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -198,20 +200,58 @@ func (vs *ValidationService) ValidateProductID(id uint) (bool, string) {
 }
 
 // ValidateFile проверяет безопасность файла
-func (vs *ValidationService) ValidateFile(file *multipart.FileHeader, allowedExtensions map[string]bool, maxSize int64) (bool, string) {
+func (vs *ValidationService) ValidateFile(file *multipart.FileHeader, isProductFile bool) (bool, string) {
+	// Проверка на nil
+	if file == nil {
+		return false, "Файл не был загружен"
+	}
+
 	// Проверка размера файла
-	if file.Size > maxSize {
-		return false, fmt.Sprintf("Файл слишком большой (максимум %d МБ)", maxSize/(1024*1024))
+	if isProductFile {
+		if file.Size > MaxProductFileSize {
+			return false, fmt.Sprintf("Размер файла превышает максимально допустимый (%d МБ)", MaxProductFileSize/(1024*1024))
+		}
+	} else {
+		if file.Size > MaxImageSize {
+			return false, fmt.Sprintf("Размер изображения превышает максимально допустимый (%d МБ)", MaxImageSize/(1024*1024))
+		}
 	}
 
-	// Проверка расширения файла
+	// Получаем расширение файла
 	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext == "" {
-		return false, "Файл должен иметь расширение"
-	}
 
-	if !allowedExtensions[ext] {
-		return false, "Недопустимый тип файла"
+	// Проверяем расширение файла
+	if isProductFile {
+		if !AllowedProductFileExtensions[ext] {
+			return false, "Недопустимый тип файла"
+		}
+	} else {
+		// Для изображений проверяем и расширение, и MIME-тип
+		switch ext {
+		case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+			// Открываем файл для проверки MIME-типа
+			src, err := file.Open()
+			if err != nil {
+				return false, "Ошибка при проверке файла"
+			}
+			defer src.Close()
+
+			// Читаем первые 512 байт для определения MIME-типа
+			buffer := make([]byte, 512)
+			_, err = src.Read(buffer)
+			if err != nil && err != io.EOF {
+				return false, "Ошибка при проверке типа файла"
+			}
+
+			// Определяем MIME-тип
+			mimeType := strings.ToLower(http.DetectContentType(buffer))
+
+			if !AllowedImageTypes[mimeType] {
+				return false, "Недопустимый тип изображения"
+			}
+		default:
+			return false, "Недопустимое расширение файла изображения"
+		}
 	}
 
 	return true, ""
