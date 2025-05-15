@@ -221,70 +221,58 @@ func (uc *UploadController) HandleUpload(c *gin.Context) {
 	// Текущее время для уникальных имен файлов
 	timestamp := time.Now().UnixNano()
 
-	// Обработка изображения товара
-	var imagePath string
-	productImage, err := c.FormFile("product_image")
-	if err == nil { // Если изображение предоставлено
-		// Проверка безопасности изображения с использованием ValidationService
-		if valid, errMsg := uc.validationService.ValidateFile(productImage, services.AllowedImageTypes, services.MaxImageSize); !valid {
-			renderTemplate(c, "upload.html", gin.H{
-				"Error":       "Проблема с изображением товара: " + errMsg,
-				"Title":       title,
-				"Description": description,
-			})
-			return
-		}
-
-		// Очистка имени файла с использованием ValidationService
-		safeFilename := uc.validationService.SanitizeFileName(productImage.Filename)
-
-		// Создаем уникальное имя для изображения
-		imageFilename := fmt.Sprintf("%d_%s", timestamp, safeFilename)
-		imageFilePath := filepath.Join(uploadDir, imageFilename)
-		webImagePath := "/uploads/" + imageFilename
-
-		// Сохраняем изображение
-		if err := c.SaveUploadedFile(productImage, imageFilePath); err != nil {
-			renderTemplate(c, "upload.html", gin.H{
-				"Error":       "Не удалось сохранить изображение товара: " + err.Error(),
-				"Title":       title,
-				"Description": description,
-			})
-			return
-		}
-
-		imagePath = webImagePath
+	// Обработка загруженного изображения товара
+	image, err := c.FormFile("image")
+	if err != nil {
+		renderTemplate(c, "upload.html", gin.H{
+			"Error":       "Ошибка при загрузке изображения товара",
+			"Title":       title,
+			"Description": description,
+		})
+		return
 	}
 
-	// Обработка файлов товара
+	// Валидация изображения
+	if valid, errMsg := uc.validationService.ValidateFile(image, false); !valid {
+		renderTemplate(c, "upload.html", gin.H{
+			"Error":       fmt.Sprintf("Проблема с изображением товара: %s", errMsg),
+			"Title":       title,
+			"Description": description,
+		})
+		return
+	}
+
+	// Обработка файлов продукта
 	form, err := c.MultipartForm()
 	if err != nil {
 		renderTemplate(c, "upload.html", gin.H{
-			"Error":       "Ошибка при обработке формы: " + err.Error(),
+			"Error":       "Ошибка при обработке формы",
 			"Title":       title,
 			"Description": description,
 		})
 		return
 	}
 
-	files := form.File["product_files"]
-	if len(files) == 0 {
+	files := form.File["files"]
+	if len(files) > maxProductFiles {
 		renderTemplate(c, "upload.html", gin.H{
-			"Error":       "Необходимо загрузить хотя бы один файл товара",
+			"Error":       fmt.Sprintf("Превышено максимальное количество файлов (%d)", maxProductFiles),
 			"Title":       title,
 			"Description": description,
 		})
 		return
 	}
 
-	// Проверка количества файлов
-	if len(files) > services.MaxProductFiles {
-		renderTemplate(c, "upload.html", gin.H{
-			"Error":       fmt.Sprintf("Превышено максимальное количество файлов (%d)", services.MaxProductFiles),
-			"Title":       title,
-			"Description": description,
-		})
-		return
+	// Валидация каждого файла продукта
+	for _, file := range files {
+		if valid, errMsg := uc.validationService.ValidateFile(file, true); !valid {
+			renderTemplate(c, "upload.html", gin.H{
+				"Error":       fmt.Sprintf("Проблема с файлом %s: %s", file.Filename, errMsg),
+				"Title":       title,
+				"Description": description,
+			})
+			return
+		}
 	}
 
 	// Создаем временную директорию для загружаемых файлов
@@ -301,16 +289,6 @@ func (uc *UploadController) HandleUpload(c *gin.Context) {
 
 	// Сохраняем каждый файл во временную директорию
 	for _, file := range files {
-		// Проверка безопасности файла с использованием ValidationService
-		if valid, errMsg := uc.validationService.ValidateFile(file, services.AllowedProductFileExtensions, services.MaxProductFileSize); !valid {
-			renderTemplate(c, "upload.html", gin.H{
-				"Error":       fmt.Sprintf("Проблема с файлом '%s': %s", file.Filename, errMsg),
-				"Title":       title,
-				"Description": description,
-			})
-			return
-		}
-
 		// Очистка имени файла с использованием ValidationService
 		safeFilename := uc.validationService.SanitizeFileName(file.Filename)
 
@@ -349,7 +327,6 @@ func (uc *UploadController) HandleUpload(c *gin.Context) {
 		Description: description,
 		Price:       price,
 		FilePath:    webZipPath,
-		ImagePath:   imagePath,
 		UserID:      user.ID,
 		CreatedAt:   time.Now(),
 	}
@@ -378,11 +355,6 @@ func (uc *UploadController) HandleUpload(c *gin.Context) {
 	if err != nil {
 		// Ошибка транзакции: удаляем созданные файлы и показываем ошибку
 		os.Remove(zipFilePath)
-		if imagePath != "" {
-			// Путь к файлу на диске, а не веб-путь
-			localImagePath := filepath.Join(".", imagePath) // Предполагаем, что webImagePath начинается с /uploads/
-			os.Remove(localImagePath)
-		}
 		renderTemplate(c, "upload.html", gin.H{
 			"Error":       "Ошибка сохранения товара или тегов: " + err.Error(),
 			"Title":       title,
