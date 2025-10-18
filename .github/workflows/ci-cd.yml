@@ -13,7 +13,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # ---------- NEW: нормализуем имя образа ----------
     - name: Set image name (lower-case)
       id: vars
       run: |
