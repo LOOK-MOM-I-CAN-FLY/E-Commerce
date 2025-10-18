@@ -21,7 +21,7 @@ jobs:
         echo "Image will be pushed as $IMAGE_NAME"
     # теперь ${{ env.IMAGE_NAME }} доступна всем последующим шагам
 
-    # ---------- Go тесты ----------
+    # ---------- Go tests ----------
     - uses: actions/setup-go@v5
       with:
         go-version: "1.23"
@@ -57,7 +57,7 @@ jobs:
           ${{ env.IMAGE_NAME }}:${{ github.sha }}
           ${{ env.IMAGE_NAME }}:latest
 
-    # ---------- (опционально) deploy ----------
+    # ---------- (optional) deploy ----------
     - name: Deploy to VPS
       if: github.ref == 'refs/heads/main' && env.VPS_HOST != ''
       uses: appleboy/ssh-action@v1
